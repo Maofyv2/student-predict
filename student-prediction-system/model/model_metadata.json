@@ -1,0 +1,73 @@
+{
+  "algorithm": "XGBoost Classification",
+  "feature_columns": [
+    "prelim_grade",
+    "midterm_grade",
+    "semi_final_grade",
+    "final_grade",
+    "attendance_rate",
+    "lab_score",
+    "internet_access",
+    "digital_literacy",
+    "household_income",
+    "parental_education",
+    "study_hours",
+    "working_student"
+  ],
+  "classes": [
+    "At-Risk",
+    "Fail",
+    "Pass"
+  ],
+  "training_rows": 1500,
+  "test_rows": 375,
+  "accuracy": 1.0,
+  "weighted_f1": 1.0,
+  "classification_report": {
+    "At-Risk": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 125.0
+    },
+    "Fail": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 29.0
+    },
+    "Pass": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 221.0
+    },
+    "accuracy": 1.0,
+    "macro avg": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 375.0
+    },
+    "weighted avg": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 375.0
+    }
+  },
+  "feature_importance": {
+    "semi_final_grade": 0.57159,
+    "attendance_rate": 0.17854,
+    "final_grade": 0.15015,
+    "prelim_grade": 0.07235,
+    "midterm_grade": 0.02386,
+    "lab_score": 0.00351,
+    "internet_access": 0.0,
+    "digital_literacy": 0.0,
+    "household_income": 0.0,
+    "parental_education": 0.0,
+    "study_hours": 0.0,
+    "working_student": 0.0
+  }
+}
