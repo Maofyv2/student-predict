@@ -66,7 +66,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             <div class="login-hint">
                 <span>admin / admin123</span>
-                <span>advisor / advisor123</span>
+                <span>advisor12 / advisor123</span>
             </div>
 
             <div style="margin-top: 24px; text-align: center; border-top: 1px solid var(--line); padding-top: 16px;">
