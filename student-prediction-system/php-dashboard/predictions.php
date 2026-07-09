@@ -172,21 +172,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 );
                 $stmt->execute();
 
-                // --- EARLY WARNING ALERT SYSTEM ---
                 if ($prediction === 'At-Risk' || $prediction === 'Fail') {
-                    // Find advisor
                     $stmt = $conn->prepare("SELECT advisor_id FROM tbl_students WHERE id = ?");
                     $stmt->bind_param('i', $studentId);
                     $stmt->execute();
                     $adv = $stmt->get_result()->fetch_assoc();
-                    $advisorToNotify = $adv['advisor_id'] ?? $createdBy; // Default to current user if no advisor
-                    
+                    $advisorToNotify = $adv['advisor_id'] ?? $createdBy;
+
                     $severity = ($prediction === 'Fail') ? 'High' : 'Medium';
-                    $msg = "Student {$fullName} ({$studentNo}) has been flagged as '{$prediction}' with ".round($confidence*100, 1)."% confidence.";
-                    
+                    $msg = "Student {$fullName} ({$studentNo}) has been flagged as '{$prediction}' with " . round($confidence * 100, 1) . "% confidence.";
+
                     create_alert($studentId, $advisorToNotify, 'Risk', $severity, $msg);
                 }
-                // ----------------------------------
 
                 $conn->commit();
                 $result = $api['data'];
@@ -202,10 +199,8 @@ page_header('Prediction');
 ?>
 <section class="page-heading">
     <div>
-        <p class="eyebrow">XGBoost engine</p>
-        <h1>New Student Prediction</h1>
+        <h1>Student Prediction</h1>
     </div>
-    <a class="button button-secondary" href="students.php">Student List</a>
 </section>
 
 <?php if ($errors): ?>
@@ -236,35 +231,39 @@ page_header('Prediction');
         <div class="form-grid">
             <label>
                 <span>Student No.</span>
-                <input name="student_no" value="<?= h(old_value('student_no')) ?>" required>
+                <input id="student_no" name="student_no" value="<?= h(old_value('student_no')) ?>" required
+                    autocomplete="off">
             </label>
             <label>
                 <span>Full Name</span>
-                <input name="full_name" value="<?= h(old_value('full_name')) ?>" required>
+                <input id="full_name" name="full_name" value="<?= h(old_value('full_name')) ?>" required>
             </label>
             <label>
                 <span>Year Level</span>
-                <select name="year_level" required>
+                <select id="year_level" name="year_level" required>
                     <?php foreach (['1st Year', '2nd Year', '3rd Year', '4th Year'] as $option): ?>
-                        <option <?= old_value('year_level', '3rd Year') === $option ? 'selected' : '' ?>><?= h($option) ?></option>
+                        <option <?= old_value('year_level', '3rd Year') === $option ? 'selected' : '' ?>><?= h($option) ?>
+                        </option>
                     <?php endforeach; ?>
                 </select>
             </label>
             <label>
                 <span>Section</span>
-                <input name="section" value="<?= h(old_value('section', 'BSIT-3A')) ?>" required>
+                <input id="section" name="section" value="<?= h(old_value('section', 'BSIT-1')) ?>" required>
             </label>
             <label>
                 <span>Gender</span>
-                <select name="gender">
+                <select id="gender" name="gender">
                     <?php foreach (['', 'Female', 'Male', 'Prefer not to say'] as $option): ?>
-                        <option value="<?= h($option) ?>" <?= old_value('gender') === $option ? 'selected' : '' ?>><?= h($option ?: 'Not specified') ?></option>
+                        <option value="<?= h($option) ?>" <?= old_value('gender') === $option ? 'selected' : '' ?>>
+                            <?= h($option ?: 'Not specified') ?></option>
                     <?php endforeach; ?>
                 </select>
             </label>
             <label>
                 <span>Scholarship</span>
-                <input name="scholarship_status" value="<?= h(old_value('scholarship_status', 'None')) ?>">
+                <input id="scholarship_status" name="scholarship_status"
+                    value="<?= h(old_value('scholarship_status', 'None')) ?>">
             </label>
         </div>
     </div>
@@ -280,82 +279,40 @@ page_header('Prediction');
                 <span>Semester</span>
                 <select name="semester" required>
                     <?php foreach (['1st Semester', '2nd Semester', 'Summer'] as $option): ?>
-                        <option <?= old_value('semester', '2nd Semester') === $option ? 'selected' : '' ?>><?= h($option) ?></option>
+                        <option <?= old_value('semester', '2nd Semester') === $option ? 'selected' : '' ?>><?= h($option) ?>
+                        </option>
                     <?php endforeach; ?>
                 </select>
             </label>
             <label>
                 <span>Prelim Grade</span>
-                <input type="number" step="0.01" min="0" max="100" name="prelim_grade" value="<?= h(old_value('prelim_grade')) ?>" required>
+                <input type="number" step="0.01" min="0" max="100" name="prelim_grade"
+                    value="<?= h(old_value('prelim_grade')) ?>" required>
             </label>
             <label>
                 <span>Midterm Grade</span>
-                <input type="number" step="0.01" min="0" max="100" name="midterm_grade" value="<?= h(old_value('midterm_grade')) ?>" required>
+                <input type="number" step="0.01" min="0" max="100" name="midterm_grade"
+                    value="<?= h(old_value('midterm_grade')) ?>" required>
             </label>
             <label>
                 <span>Semi-Final Grade</span>
-                <input type="number" step="0.01" min="0" max="100" name="semi_final_grade" value="<?= h(old_value('semi_final_grade', '0')) ?>" required>
+                <input type="number" step="0.01" min="0" max="100" name="semi_final_grade"
+                    value="<?= h(old_value('semi_final_grade', '0')) ?>" required>
             </label>
             <label>
                 <span>Final Grade</span>
-                <input type="number" step="0.01" min="0" max="100" name="final_grade" value="<?= h(old_value('final_grade', '0')) ?>" required>
+                <input type="number" step="0.01" min="0" max="100" name="final_grade"
+                    value="<?= h(old_value('final_grade', '0')) ?>" required>
             </label>
             <label>
                 <span>Attendance Rate</span>
-                <input type="number" step="0.01" min="0" max="100" name="attendance_rate" value="<?= h(old_value('attendance_rate')) ?>" required>
+                <input type="number" step="0.01" min="0" max="100" name="attendance_rate"
+                    value="<?= h(old_value('attendance_rate')) ?>" required>
             </label>
             <label>
                 <span>Lab Score</span>
-                <input type="number" step="0.01" min="0" max="100" name="lab_score" value="<?= h(old_value('lab_score')) ?>" required>
-            </label>
-        </div>
-    </div>
-
-    <div class="form-section">
-        <h2>Survey Factors</h2>
-        <div class="form-grid">
-            <label>
-                <span>Internet Access</span>
-                <select name="internet_access">
-                    <option value="1" <?= old_value('internet_access', '1') === '1' ? 'selected' : '' ?>>Reliable</option>
-                    <option value="0" <?= old_value('internet_access') === '0' ? 'selected' : '' ?>>Limited</option>
-                </select>
-            </label>
-            <label>
-                <span>Digital Literacy</span>
-                <input type="number" min="1" max="5" name="digital_literacy" value="<?= h(old_value('digital_literacy', '3')) ?>" required>
-            </label>
-            <label>
-                <span>Household Income</span>
-                <input type="number" step="0.01" min="0" name="household_income" value="<?= h(old_value('household_income')) ?>" required>
-            </label>
-            <label>
-                <span>Parental Education</span>
-                <select name="parental_education">
-                    <option value="1" <?= old_value('parental_education') === '1' ? 'selected' : '' ?>>Elementary</option>
-                    <option value="2" <?= old_value('parental_education', '3') === '2' ? 'selected' : '' ?>>High School</option>
-                    <option value="3" <?= old_value('parental_education', '3') === '3' ? 'selected' : '' ?>>College</option>
-                    <option value="4" <?= old_value('parental_education') === '4' ? 'selected' : '' ?>>Graduate</option>
-                </select>
-            </label>
-            <label>
-                <span>Study Hours / Week</span>
-                <input type="number" step="0.01" min="0" max="80" name="study_hours" value="<?= h(old_value('study_hours')) ?>" required>
-            </label>
-            <label>
-                <span>Working Student</span>
-                <select name="working_student">
-                    <option value="0" <?= old_value('working_student', '0') === '0' ? 'selected' : '' ?>>No</option>
-                    <option value="1" <?= old_value('working_student') === '1' ? 'selected' : '' ?>>Yes</option>
-                </select>
-            </label>
-            <label>
-                <span>Device Availability</span>
-                <select name="device_availability">
-                    <?php foreach (['Own laptop/desktop', 'Shared device', 'Mobile only', 'No regular device'] as $option): ?>
-                        <option <?= old_value('device_availability', 'Shared device') === $option ? 'selected' : '' ?>><?= h($option) ?></option>
-                    <?php endforeach; ?>
-                </select>
+                <input type="number" step="0.01" min="0" max="100" name="lab_score"
+                    value="<?= h(old_value('lab_score')) ?>" required>
             </label>
         </div>
     </div>
@@ -377,4 +334,29 @@ page_header('Prediction');
         </div>
     </section>
 <?php endif; ?>
+
+<script>
+    document.getElementById('student_no').addEventListener('blur', function () {
+        const studentNo = this.value.trim();
+        if (studentNo === '') return;
+
+        fetch(`get_student.php?student_no=${encodeURIComponent(studentNo)}`)
+            .then(response => response.json())
+            .then(res => {
+                if (res.success) {
+                    const s = res.data;
+                    document.getElementById('full_name').value = s.full_name || '';
+                    document.getElementById('year_level').value = s.year_level || '3rd Year';
+                    document.getElementById('section').value = s.section || '';
+                    document.getElementById('gender').value = s.gender || '';
+                    document.getElementById('scholarship_status').value = s.scholarship_status || 'None';
+                    document.getElementById('household_income').value = s.household_income || '';
+                    document.getElementById('parental_education').value = s.parental_education || '3';
+                    document.getElementById('working_student').value = s.working_student !== undefined ? s.working_student : '0';
+                }
+            })
+            .catch(err => console.error('Error fetching student data:', err));
+    });
+</script>
+
 <?php page_footer(); ?>

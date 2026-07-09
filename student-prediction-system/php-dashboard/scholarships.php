@@ -9,7 +9,6 @@ if (!in_array($user['role'], ['Admin', 'Advisor'])) {
 
 $advisor_id = ($user['role'] === 'Advisor') ? $user['id'] : null;
 
-// Get students with their latest academic records and predictions
 $sql = "SELECT 
             s.id, 
             s.student_no, 
@@ -43,7 +42,6 @@ if ($advisor_id !== null) {
     $stmt->execute();
     $students = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 } else {
-    // Admin sees everything
     $students = db()->query($sql . " ORDER BY s.full_name ASC")->fetch_all(MYSQLI_ASSOC);
 }
 
@@ -54,7 +52,6 @@ function calculate_gpa($student) {
         $student['semi_final_grade'],
         $student['final_grade']
     ];
-    // Filter out zero/null grades if they are not yet entered
     $valid_grades = array_filter($grades, function($g) { return $g > 0; });
     if (empty($valid_grades)) return 0;
     return array_sum($valid_grades) / count($valid_grades);
@@ -65,7 +62,6 @@ function get_scholarship_status($student) {
     $prediction = $student['predicted_status'];
     $is_first_year = ($student['year_level'] === '1st Year');
 
-    // Requirement: Prediction must be 'Pass'
     if ($prediction !== 'Pass') {
         return [
             'eligible' => false,
@@ -75,7 +71,6 @@ function get_scholarship_status($student) {
         ];
     }
 
-    // Entrance Scholarships for 1st Year Students (Based on high school performance / initial grades)
     if ($is_first_year && $gpa >= 98) {
         return [
             'eligible' => true,
@@ -85,7 +80,6 @@ function get_scholarship_status($student) {
         ];
     }
 
-    // Standard Academic Achievement Scholarships
     if ($gpa >= 95) {
         return [
             'eligible' => true,

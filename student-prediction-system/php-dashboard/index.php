@@ -41,9 +41,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <main class="login-shell">
         <section class="login-panel">
             <div class="login-brand">
-                <span class="brand-mark">AU</span>
+                <img src="au.png" alt="Arellano University Logo" class="login-logo">
                 <div>
-                    <h1>BSIT Prediction System</h1>
+                    <h1>BSIT PORTAL</h1>
                     <p>Arellano University College of Computer Studies</p>
                 </div>
             </div>
@@ -63,11 +63,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </label>
                 <button class="button button-primary" type="submit">Login</button>
             </form>
-
-            <div class="login-hint">
-                <span>admin / admin123</span>
-                <span>advisor12 / advisor123</span>
-            </div>
 
             <div style="margin-top: 24px; text-align: center; border-top: 1px solid var(--line); padding-top: 16px;">
                 <p style="margin-bottom: 8px; font-size: 0.9rem; color: var(--muted);">Are you a student?</p>

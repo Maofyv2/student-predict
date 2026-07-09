@@ -64,15 +64,14 @@ button {
 }
 
 .brand-mark {
-    width: 42px;
-    height: 42px;
-    display: inline-grid;
-    place-items: center;
-    border-radius: 8px;
-    background: #112a5c;
-    color: #ffffff;
-    font-weight: 800;
-    letter-spacing: 0;
+    display: inline-flex;
+    align-items: center;
+}
+
+.brand-logo {
+    height: 40px; 
+    width: auto; 
+    object-fit: contain;
 }
 
 .brand strong,
@@ -506,7 +505,11 @@ select:focus {
 }
 
 .login-body {
-    background: linear-gradient(120deg, #10285a, #1d4ed8 55%, #2f6f73);
+    background-image: url('bg.jpg');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
 }
 
 .login-shell {
@@ -522,11 +525,20 @@ select:focus {
 }
 
 .login-brand {
-    margin-bottom: 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;    
+    text-align: center;
 }
 
-.login-brand p {
-    margin: 4px 0 0;
+.login-logo-container {
+    margin-bottom: 16px;
+}
+
+.login-logo {
+    height: 80px;        
+    width: auto;         
+    object-fit: contain;
 }
 
 .form-stack {
@@ -544,6 +556,7 @@ select:focus {
 }
 
 @media (max-width: 920px) {
+
     .topbar,
     .page-heading,
     .user-menu {
@@ -598,9 +611,34 @@ select:focus {
     }
 }
 
-.unread-alert { border-left: 3px solid var(--blue); }
-.status-badge { padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; }
-.status-badge.status-muted { background: var(--surface-strong); color: var(--muted); }
-.status-badge.status-pass { background: var(--green-bg); color: var(--green); }
-.status-badge.status-risk { background: var(--amber-bg); color: var(--amber); }
-.status-badge.status-fail { background: var(--red-bg); color: var(--red); }
+.unread-alert {
+    border-left: 3px solid var(--blue);
+}
+
+.status-badge {
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.status-badge.status-muted {
+    background: var(--surface-strong);
+    color: var(--muted);
+}
+
+.status-badge.status-pass {
+    background: var(--green-bg);
+    color: var(--green);
+}
+
+.status-badge.status-risk {
+    background: var(--amber-bg);
+    color: var(--amber);
+}
+
+.status-badge.status-fail {
+    background: var(--red-bg);
+    color: var(--red);
+}

@@ -139,7 +139,6 @@ function ensure_schema(mysqli $conn): void
         $conn->query($statement);
     }
 
-    // Migration: Add Semi-Final and Final grades if they don't exist
     $cols = $conn->query("SHOW COLUMNS FROM tbl_academic_records LIKE 'semi_final_grade'");
     if ($cols->num_rows === 0) {
         $conn->query("ALTER TABLE tbl_academic_records ADD COLUMN semi_final_grade DECIMAL(5,2) DEFAULT 0 AFTER midterm_grade");
@@ -252,7 +251,6 @@ function severity_class(string $severity): string
         default => 'status-muted',
     };
 }
-
 function create_alert(int $student_id, int $user_id, string $type, string $severity, string $message): bool
 {
     $stmt = db()->prepare("INSERT INTO tbl_alerts (student_id, user_id, alert_type, severity, message) VALUES (?, ?, ?, ?, ?)");
@@ -292,7 +290,9 @@ function page_header(string $title): void
     <body>
     <header class="topbar">
         <a class="brand" href="dashboard.php" aria-label="Dashboard">
-            <span class="brand-mark">AU</span>
+            <span class="brand-mark">
+               <img src="au.png" alt="AU Logo" class="brand-logo">
+            </span>
             <span>
                 <strong>BSIT Prediction System</strong>
                 <small>Arellano University</small>

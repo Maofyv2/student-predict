@@ -11,7 +11,7 @@ $recent = latest_predictions(8, $advisor_id);
 $metadata = model_metadata();
 $health = api_request('GET', '/health');
 $latestTotal = max(1, array_sum($counts));
-$recent_alerts = get_alerts($user['id'], true); // Get unread alerts
+$recent_alerts = get_alerts($user['id'], true); 
 
 page_header('Dashboard');
 ?>
@@ -20,7 +20,6 @@ page_header('Dashboard');
         <p class="eyebrow">Academic monitoring</p>
         <h1>Student Performance Dashboard</h1>
     </div>
-    <a class="button button-primary" href="predictions.php">New Prediction</a>
 </section>
 
 <section class="metrics-grid">

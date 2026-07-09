@@ -25,7 +25,6 @@ if ($q !== '') {
     $students = db()->query($sql . ' ORDER BY s.full_name ASC')->fetch_all(MYSQLI_ASSOC);
 }
 
-// Handle Advisor Assignment
 if (isset($_POST['assign_advisor'])) {
     $student_id = (int) $_POST['student_id'];
     $advisor_id = (int) $_POST['advisor_id'];
@@ -45,7 +44,7 @@ page_header('Students');
         <p class="eyebrow">Records</p>
         <h1>Student List</h1>
     </div>
-    <a class="button button-primary" href="predictions.php">Add Prediction</a>
+    <a class="button button-primary" href="add_student.php">Add Student</a>
 </section>
 
 <form class="toolbar" method="get">
@@ -58,61 +57,24 @@ page_header('Students');
         <table>
             <thead>
                 <tr>
+                    <th>School No.</th>
                     <th>Student</th>
                     <th>Year / Section</th>
-                    <th>Advisor</th>
-                    <th>Latest Status</th>
-                    <th>Updated</th>
-                    <th>Action</th>
                 </tr>
             </thead>
             <tbody>
                 <?php if (!$students): ?>
-                    <tr><td colspan="6" class="empty">No student records found.</td></tr>
+                    <tr>
+                        <td colspan="3" class="empty">No student records found.</td>
+                    </tr>
                 <?php endif; ?>
                 <?php foreach ($students as $student): ?>
                     <tr>
+                        <td><?= h($student['student_no']) ?></td>
                         <td>
                             <strong><?= h($student['full_name']) ?></strong>
-                            <small><?= h($student['student_no']) ?></small>
                         </td>
                         <td><?= h($student['year_level'] . ' / ' . $student['section']) ?></td>
-                        <td>
-                            <?php if ($student['advisor_id']): ?>
-                                <strong><?= h($student['advisor_name']) ?></strong>
-                            <?php else: ?>
-                                <span class="text-muted">Unassigned</span>
-                            <?php endif; ?>
-                        </td>
-                        <td>
-                            <?php if ($student['predicted_status']): ?>
-                                <span class="status <?= h(status_class($student['predicted_status'])) ?>"><?= h($student['predicted_status']) ?></span>
-                                <small><?= h((string) round((float) $student['confidence'] * 100, 1)) ?>%</small>
-                            <?php else: ?>
-                                <span class="status status-muted">Pending</span>
-                            <?php endif; ?>
-                        </td>
-                        <td><?= $student['predicted_at'] ? h(date('M d, Y', strtotime($student['predicted_at']))) : 'No prediction' ?></td>
-                        <td>
-                            <div style="display: flex; gap: 0.5rem; align-items: center;">
-                                <?php if ($current_user['role'] === 'Advisor'): ?>
-                                    <a href="give_advice.php?student_id=<?= $student['id'] ?>" class="button button-secondary" style="font-size: 0.75rem; padding: 5px 10px;">Give Advice</a>
-                                <?php endif; ?>
-                                
-                                <?php if ($current_user['role'] === 'Admin'): ?>
-                                    <form method="post" style="display:flex; gap: 0.5rem;">
-                                        <input type="hidden" name="student_id" value="<?= $student['id'] ?>">
-                                        <select name="advisor_id" style="padding: 2px; font-size: 0.8rem;">
-                                            <option value="">Assign Advisor...</option>
-                                            <?php foreach ($advisors as $adv): ?>
-                                                <option value="<?= $adv['id'] ?>" <?= (int)$student['advisor_id'] === (int)$adv['id'] ? 'selected' : '' ?>><?= h($adv['full_name']) ?></option>
-                                            <?php endforeach; ?>
-                                        </select>
-                                        <button type="submit" name="assign_advisor" class="button button-ghost" style="font-size: 0.7rem; padding: 2px 5px;">Save</button>
-                                    </form>
-                                <?php endif; ?>
-                            </div>
-                        </td>
                     </tr>
                 <?php endforeach; ?>
             </tbody>

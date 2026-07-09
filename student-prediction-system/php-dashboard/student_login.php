@@ -26,7 +26,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <title>Student Login | Arellano BSIT</title>
     <link rel="stylesheet" href="assets.css">
     <style>
-        body { display: flex; align-items: center; justify-content: center; min-height: 100vh; background: #f0f2f5; }
+        body { display: flex; align-items: center; justify-content: center; min-height: 100vh; background-image: url('bg.jpg'); background-size: cover; background-position: center; background-repeat: no-repeat; background-attachment: fixed;}
         .login-card { width: 100%; max-width: 400px; padding: 2rem; background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
         .login-logo { text-align: center; margin-bottom: 2rem; }
         .login-logo h1 { font-size: 1.5rem; margin: 0; color: #1a1a1a; }

@@ -5,7 +5,6 @@ require_login();
 $user = current_user();
 $alerts = get_alerts($user['id']);
 
-// Handle Mark as Read
 if (isset($_GET['mark_read'])) {
     $alert_id = (int) $_GET['mark_read'];
     $stmt = db()->prepare("UPDATE tbl_alerts SET is_read = 1 WHERE id = ? AND user_id = ?");

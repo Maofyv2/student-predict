@@ -4,7 +4,6 @@ require_login();
 
 $user = current_user();
 
-// RESTRICTION: Only the Advisor role can give advice.
 if ($user['role'] !== 'Advisor') {
     die("Access Denied: Only Academic Advisors can provide advice.");
 }
@@ -15,7 +14,6 @@ if (!$student_id) {
     redirect_to('students.php');
 }
 
-// Fetch student details
 $stmt = db()->prepare("SELECT * FROM tbl_students WHERE id = ?");
 $stmt->bind_param('i', $student_id);
 $stmt->execute();

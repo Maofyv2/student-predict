@@ -5,8 +5,6 @@ require_login();
 $tab = $_GET['tab'] ?? 'overview';
 $metadata = model_metadata();
 
-// --- DATA FETCHING HELPERS ---
-
 function get_performance_summary(): array
 {
     $sql = "SELECT p.predicted_status, COUNT(*) as total 
@@ -74,7 +72,6 @@ function get_subject_performance(): array
     return db()->query($sql)->fetch_assoc() ?: [];
 }
 
-// --- EXPORT LOGIC ---
 if (isset($_GET['export']) && $_GET['export'] === 'csv') {
     $rows = db()->query("SELECT s.student_no, s.full_name, p.predicted_status, p.confidence, p.created_at FROM tbl_predictions p JOIN tbl_students s ON s.id = p.student_id ORDER BY p.created_at DESC")->fetch_all(MYSQLI_ASSOC);
     header('Content-Type: text/csv');
