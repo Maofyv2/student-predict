@@ -115,8 +115,8 @@ function ensure_schema(mysqli $conn): void
             id INT AUTO_INCREMENT PRIMARY KEY,
             student_id INT NOT NULL,
             user_id INT NOT NULL,
-            alert_type ENUM('Risk','Academic','Attendance') NOT NULL,
-            severity ENUM('Low','Medium','High','Critical') NOT NULL,
+            alert_type ENUM('Risk','Academic','Attendance','Student Update') NOT NULL,
+            severity ENUM('Low','Medium','High','Critical','Info') NOT NULL,
             message TEXT NOT NULL,
             is_read TINYINT(1) DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -244,13 +244,14 @@ function status_class(string $status): string
 function severity_class(string $severity): string
 {
     return match ($severity) {
-        'Low' => 'status-muted',
+        'Low', 'Info' => 'status-muted',
         'Medium' => 'status-pass',
         'High' => 'status-risk',
         'Critical' => 'status-fail',
         default => 'status-muted',
     };
 }
+
 function create_alert(int $student_id, int $user_id, string $type, string $severity, string $message): bool
 {
     $stmt = db()->prepare("INSERT INTO tbl_alerts (student_id, user_id, alert_type, severity, message) VALUES (?, ?, ?, ?, ?)");
@@ -277,6 +278,22 @@ function get_alerts(int $user_id, bool $only_unread = false): array
 function page_header(string $title): void
 {
     $user = current_user();
+
+    // Kunin ang unread Student Updates/Assessments para sa Notification Bell (Hina-huli pati lumang profile update messages)
+    $unread_count = 0;
+    if ($user) {
+        $current_user_id = (int) $user['id'];
+        $stmtNotif = db()->prepare(
+            "SELECT COUNT(*) AS total 
+             FROM tbl_alerts 
+             WHERE user_id = ? 
+               AND (alert_type = 'Student Update' OR message LIKE '%updated their self-assessment profile%') 
+               AND is_read = 0"
+        );
+        $stmtNotif->bind_param('i', $current_user_id);
+        $stmtNotif->execute();
+        $unread_count = (int) ($stmtNotif->get_result()->fetch_assoc()['total'] ?? 0);
+    }
     ?>
     <!doctype html>
     <html lang="en">
@@ -300,16 +317,31 @@ function page_header(string $title): void
         </a>
         <nav class="nav">
             <a href="dashboard.php">Dashboard</a>
-            <a href="predictions.php">Prediction</a>
-            <a href="students.php">Students</a>
-            <a href="alerts.php">Alerts</a>
-            <a href="reports.php">Reports</a>
+
+            <?php if ($user && ($user['role'] === 'Admin' || $user['role'] === 'Advisor')): ?>
+                <a href="predictions.php">Prediction</a>
+                <a href="students.php">Students</a>
+                <a href="alerts.php">Alerts</a>
+                <a href="reports.php">Reports</a>
+            <?php endif; ?>
+
             <?php if ($user && $user['role'] === 'Advisor'): ?>
                 <a href="scholarships.php">Scholarships</a>
             <?php endif; ?>
         </nav>
+
         <?php if ($user): ?>
-            <div class="user-menu">
+            <div class="user-menu" style="display: flex; align-items: center; gap: 1.25rem;">
+                <!-- Notification Bell Icon (Gumagana para sa Student Assessments Updates) -->
+                <a href="notifications.php" title="Student Assessment Updates" style="position: relative; text-decoration: none; font-size: 1.3rem; display: inline-flex; align-items: center; color: currentColor;">
+                    🔔
+                    <?php if ($unread_count > 0): ?>
+                        <span style="position: absolute; top: -6px; right: -8px; background: #dc3545; color: #ffffff; border-radius: 50%; padding: 2px 6px; font-size: 0.65rem; font-weight: bold; line-height: 1;">
+                            <?= $unread_count ?>
+                        </span>
+                    <?php endif; ?>
+                </a>
+
                 <span><?= h($user['full_name']) ?></span>
                 <a class="button button-ghost" href="logout.php">Logout</a>
             </div>
@@ -360,7 +392,7 @@ function prediction_counts(?int $advisor_id = null): array
                 SELECT student_id, MAX(id) AS latest_id
                 FROM tbl_predictions
                 GROUP BY student_id
-             ) latest ON latest.latest_id = p.id
+             ) latest ON latest.latest_id = p.id    
              INNER JOIN tbl_students s ON s.id = p.student_id";
     
     if ($advisor_id !== null) {

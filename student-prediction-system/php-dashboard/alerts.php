@@ -3,13 +3,26 @@ require_once 'bootstrap.php';
 require_login();
 
 $user = current_user();
-$alerts = get_alerts($user['id']);
+$user_id = (int) $user['id'];
+
+$sql = "SELECT a.*, s.full_name, s.student_no 
+        FROM tbl_alerts a 
+        JOIN tbl_students s ON a.student_id = s.id 
+        WHERE a.user_id = ? 
+          AND a.alert_type != 'Student Update' 
+          AND a.message NOT LIKE '%updated their self-assessment profile%'
+        ORDER BY a.created_at DESC";
+
+$stmt = db()->prepare($sql);
+$stmt->bind_param('i', $user_id);
+$stmt->execute();
+$alerts = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 
 if (isset($_GET['mark_read'])) {
     $alert_id = (int) $_GET['mark_read'];
-    $stmt = db()->prepare("UPDATE tbl_alerts SET is_read = 1 WHERE id = ? AND user_id = ?");
-    $stmt->bind_param('ii', $alert_id, $user['id']);
-    $stmt->execute();
+    $stmtMark = db()->prepare("UPDATE tbl_alerts SET is_read = 1 WHERE id = ? AND user_id = ?");
+    $stmtMark->bind_param('ii', $alert_id, $user_id);
+    $stmtMark->execute();
     redirect_to('alerts.php');
 }
 
@@ -18,8 +31,8 @@ page_header('Early Warning Alerts');
 
 <div class="card">
     <div class="card-header">
-        <h2 class="card-title">Early Warning Notifications</h2>
-        <p class="card-subtitle">Automated alerts for students at risk of academic failure.</p>
+        <h2 class="card-title">Early Warning System (At-Risk Alerts)</h2>
+        <p class="card-subtitle">Automated risk detection for academic performance & attendance issues.</p>
     </div>
     
     <div class="table-container">
@@ -39,7 +52,7 @@ page_header('Early Warning Alerts');
                 <?php if (empty($alerts)): ?>
                     <tr>
                         <td colspan="7" style="text-align: center; padding: 2rem; color: var(--text-muted);">
-                            No alerts found. Everything looks good!
+                            No early warning risk alerts found. Everything looks good!
                         </td>
                     </tr>
                 <?php else: ?>

@@ -40,40 +40,6 @@ page_header('Dashboard');
         <strong class="text-fail"><?= h((string) $counts['Fail']) ?></strong>
     </article>
 </section>
-
-<?php if (!empty($recent_alerts)): ?>
-<section class="panel" style="border-left: 4px solid var(--accent-risk);">
-    <div class="panel-title">
-        <h2 style="color: var(--accent-risk);">Recent Early Warnings</h2>
-        <a href="alerts.php">View all</a>
-    </div>
-    <div class="table-wrap">
-        <table>
-            <thead>
-                <tr>
-                    <th>Student</th>
-                    <th>Type</th>
-                    <th>Severity</th>
-                    <th>Message</th>
-                    <th>Time</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php foreach (array_slice($recent_alerts, 0, 5) as $alert): ?>
-                    <tr>
-                        <td><strong><?= h($alert['full_name']) ?></strong></td>
-                        <td><?= h($alert['alert_type']) ?></td>
-                        <td><span class="status-badge <?= severity_class($alert['severity']) ?>"><?= h($alert['severity']) ?></span></td>
-                        <td><?= h($alert['message']) ?></td>
-                        <td><?= h(date('H:i', strtotime($alert['created_at']))) ?></td>
-                    </tr>
-                <?php endforeach; ?>
-            </tbody>
-        </table>
-    </div>
-</section>
-<?php endif; ?>
-
 <section class="layout-two">
     <article class="panel">
         <div class="panel-title">

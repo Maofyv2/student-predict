@@ -7,11 +7,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $year_level = $_POST['year_level'];
     $section = $_POST['section'];
     $gender = $_POST['gender'];
+    $password = $_POST['password'];
 
-    $query = "INSERT INTO tbl_students (student_no, full_name, year_level, section, gender) 
-              VALUES ('$school_no', '$fullname', '$year_level', '$section', '$gender')";
+    $password_hash = password_hash($password, PASSWORD_DEFAULT);
 
-    if (mysqli_query($conn, $query)) {
+    $stmt = mysqli_prepare($conn, "INSERT INTO tbl_students (student_no, full_name, year_level, section, gender, password_hash) VALUES (?, ?, ?, ?, ?, ?)");
+    mysqli_stmt_bind_param($stmt, "ssssss", $school_no, $fullname, $year_level, $section, $gender, $password_hash);
+
+    if (mysqli_stmt_execute($stmt)) {
         header("Location: students.php");
         exit();
     } else {
@@ -102,6 +105,34 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
         }
 
+        /* Password Wrapper & Toggle Styling */
+        .password-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .password-wrapper input {
+            padding-right: 45px;
+        }
+
+        .toggle-password {
+            position: absolute;
+            right: 12px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: #64748b;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 4px;
+        }
+
+        .toggle-password:hover {
+            color: #3b82f6;
+        }
+
         select.form-control {
             appearance: none;
             background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748b'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
@@ -162,14 +193,25 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         <form action="" method="POST">
             <div class="form-group">
                 <label for="fullname">Fullname</label>
-                <input type="text" id="fullname" name="fullname" class="form-control" placeholder="e.g. Juan Dela Cruz"
-                    required>
+                <input type="text" id="fullname" name="fullname" class="form-control" placeholder="e.g. Juan Dela Cruz" required>
             </div>
 
             <div class="form-group">
                 <label for="school_no">School No.</label>
-                <input type="text" id="school_no" name="school_no" class="form-control" placeholder="e.g. 2026-01234"
-                    required>
+                <input type="text" id="school_no" name="school_no" class="form-control" placeholder="e.g. 2026-01234" required>
+            </div>
+
+            <div class="form-group">
+                <label for="password">Student Password</label>
+                <div class="password-wrapper">
+                    <input type="password" id="password" name="password" class="form-control" placeholder="Assign initial password" required>
+                    <button type="button" class="toggle-password" onclick="togglePasswordVisibility()">
+                        <svg id="eye-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                            <circle cx="12" cy="12" r="3"></circle>
+                        </svg>
+                    </button>
+                </div>
             </div>
 
             <div class="form-group">
@@ -216,6 +258,26 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         </form>
     </div>
 
+    <script>
+        function togglePasswordVisibility() {
+            const passwordInput = document.getElementById('password');
+            const eyeIcon = document.getElementById('eye-icon');
+
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                eyeIcon.innerHTML = `
+                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                    <line x1="1" y1="1" x2="23" y2="23"></line>
+                `;
+            } else {
+                passwordInput.type = 'password';
+                eyeIcon.innerHTML = `
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                    <circle cx="12" cy="12" r="3"></circle>
+                `;
+            }
+        }
+    </script>
 </body>
 
 </html>
