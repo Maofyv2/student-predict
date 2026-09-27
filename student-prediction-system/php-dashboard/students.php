@@ -2,7 +2,6 @@
 require_once __DIR__ . '/bootstrap.php';
 require_login();
 
-// BACKEND: Handle Password Reset Submission
 if (isset($_POST['reset_password'])) {
     $student_id = (int) $_POST['student_id'];
     $new_password = $_POST['new_password'] ?? '';
@@ -16,7 +15,10 @@ if (isset($_POST['reset_password'])) {
     redirect_to('students.php');
 }
 
+<<<<<<< HEAD
 // BACKEND: Handle Assign Advisor Submission
+=======
+>>>>>>> d29f5ea (Update student prediction system)
 if (isset($_POST['assign_advisor'])) {
     $student_id = (int) $_POST['student_id'];
     $advisor_id = (int) $_POST['advisor_id'];
@@ -56,7 +58,10 @@ page_header('Students');
 ?>
 
 <style>
+<<<<<<< HEAD
     /* CSS para sa Reset Modal at Password Input */
+=======
+>>>>>>> d29f5ea (Update student prediction system)
     .reset-modal {
         display: none;
         position: fixed;
@@ -169,7 +174,10 @@ page_header('Students');
     </div>
 </section>
 
+<<<<<<< HEAD
 <!-- RESET PASSWORD MODAL -->
+=======
+>>>>>>> d29f5ea (Update student prediction system)
 <div id="resetModal" class="reset-modal">
     <div class="reset-modal-card">
         <h3 style="margin: 0 0 6px 0; color: #1e293b; font-size: 20px;">Reset Password</h3>

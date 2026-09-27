@@ -105,7 +105,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
         }
 
-        /* Password Wrapper & Toggle Styling */
         .password-wrapper {
             position: relative;
             display: flex;

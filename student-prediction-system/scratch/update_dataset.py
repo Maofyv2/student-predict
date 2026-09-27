@@ -13,7 +13,6 @@ headers = [
 
 rows = []
 for _ in range(1500):
-    # Pass pattern
     if random.random() < 0.6:
         prelim = random.uniform(82, 100)
         midterm = random.uniform(82, 100)
@@ -22,7 +21,6 @@ for _ in range(1500):
         attendance = random.uniform(85, 100)
         lab = random.uniform(80, 100)
         status = "Pass"
-    # At-Risk pattern
     elif random.random() < 0.8:
         prelim = random.uniform(70, 85)
         midterm = random.uniform(70, 85)
@@ -31,7 +29,6 @@ for _ in range(1500):
         attendance = random.uniform(70, 90)
         lab = random.uniform(70, 90)
         status = "At-Risk"
-    # Fail pattern
     else:
         prelim = random.uniform(50, 75)
         midterm = random.uniform(50, 75)

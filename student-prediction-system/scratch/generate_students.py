@@ -45,15 +45,13 @@ with open(sql_file, "w") as f:
         f.write(f"INSERT INTO tbl_students (id, student_no, full_name, year_level, section, gender, household_income, parental_education, scholarship_status, working_student) ")
         f.write(f"VALUES ({i}, '{student_no}', '{full_name}', '{year}', '{section}', '{gender}', {income}, {parent_edu}, '{scholarship}', {working});\n")
         
-        # Generate Survey Data
         internet = random.choice([0, 1])
         digital = random.randint(1, 5)
         device = random.choice(["Laptop", "Smartphone", "Desktop", "Tablet", "Laptop & Smartphone"])
         study_hours = round(random.uniform(2, 20), 1)
         f.write(f"INSERT INTO tbl_surveys (student_id, internet_access, digital_literacy, device_availability, study_hours) VALUES ({i}, {internet}, {digital}, '{device}', {study_hours});\n")
         
-        # Generate Academic Records (including SF and Final)
-        if i % 3 == 0: # Pass
+        if i % 3 == 0: 
             prelim = round(random.uniform(85, 98), 2)
             midterm = round(random.uniform(85, 98), 2)
             semifinal = round(random.uniform(85, 98), 2)
@@ -63,7 +61,7 @@ with open(sql_file, "w") as f:
             conf = round(random.uniform(0.8, 0.99), 4)
             rec = "Keep up the excellent work! Participate in advanced workshops."
             factors = "High attendance, Strong academic performance"
-        elif i % 3 == 1: # At-Risk
+        elif i % 3 == 1: 
             prelim = round(random.uniform(75, 84), 2)
             midterm = round(random.uniform(75, 84), 2)
             semifinal = round(random.uniform(70, 80), 2)
@@ -73,7 +71,7 @@ with open(sql_file, "w") as f:
             conf = round(random.uniform(0.6, 0.85), 4)
             rec = "Attend peer tutoring and improve study habits."
             factors = "Fluctuating grades, Moderate attendance"
-        else: # Fail
+        else: 
             prelim = round(random.uniform(60, 74), 2)
             midterm = round(random.uniform(60, 74), 2)
             semifinal = round(random.uniform(50, 70), 2)
@@ -88,7 +86,6 @@ with open(sql_file, "w") as f:
         f.write(f"INSERT INTO tbl_academic_records (id, student_id, academic_year, semester, prelim_grade, midterm_grade, semi_final_grade, final_grade, attendance_rate, lab_score) ")
         f.write(f"VALUES ({i}, {i}, '2023-2024', '1st Semester', {prelim}, {midterm}, {semifinal}, {final}, {attendance}, {lab});\n")
 
-        # Generate Prediction
         payload = json.dumps({
             "prelim_grade": prelim, "midterm_grade": midterm, 
             "semi_final_grade": semifinal, "final_grade": final,

@@ -6,7 +6,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $new_password = $_POST['new_password'] ?? '';
 
     if ($student_id > 0 && !empty($new_password)) {
-        // Secure Hashing sa Bagong Password
+
         $new_password_hash = password_hash($new_password, PASSWORD_DEFAULT);
 
         $stmt = mysqli_prepare($conn, "UPDATE tbl_students SET password_hash = ? WHERE id = ?");

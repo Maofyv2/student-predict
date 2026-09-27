@@ -5,7 +5,10 @@ require_login();
 $user = current_user();
 $user_id = (int) $user['id'];
 
+<<<<<<< HEAD
 // AUTO-MIGRATION / TABLE SETUP
+=======
+>>>>>>> d29f5ea (Update student prediction system)
 db()->query("CREATE TABLE IF NOT EXISTS tbl_student_activities (
     id INT AUTO_INCREMENT PRIMARY KEY,
     student_id INT NOT NULL,
@@ -24,7 +27,10 @@ db()->query("CREATE TABLE IF NOT EXISTS tbl_student_activities (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 )");
 
+<<<<<<< HEAD
 // Safely add missing columns
+=======
+>>>>>>> d29f5ea (Update student prediction system)
 $colsToCheck = [
     'submission_file' => "VARCHAR(255) DEFAULT NULL",
     'submission_file_path' => "VARCHAR(255) DEFAULT NULL",
@@ -41,7 +47,10 @@ foreach ($colsToCheck as $col => $def) {
     }
 }
 
+<<<<<<< HEAD
 // BACKEND: Handle Grading Submission by Instructor
+=======
+>>>>>>> d29f5ea (Update student prediction system)
 if (isset($_POST['grade_activity'])) {
     $activity_id = (int) $_POST['activity_id'];
     $grade = trim($_POST['grade'] ?? '');
@@ -55,7 +64,10 @@ if (isset($_POST['grade_activity'])) {
     redirect_to('notifications.php');
 }
 
+<<<<<<< HEAD
 // BACKEND: Handle Send Activity Submission (with File Upload)
+=======
+>>>>>>> d29f5ea (Update student prediction system)
 if (isset($_POST['send_activity'])) {
     $student_id = (int) $_POST['student_id'];
     $title = trim($_POST['activity_title'] ?? '');
@@ -86,7 +98,10 @@ if (isset($_POST['send_activity'])) {
     redirect_to('notifications.php');
 }
 
+<<<<<<< HEAD
 // Auto-mark read
+=======
+>>>>>>> d29f5ea (Update student prediction system)
 if (isset($_GET['mark_read_id'])) {
     $alert_id = (int) $_GET['mark_read_id'];
     $stmtRead = db()->prepare("UPDATE tbl_alerts SET is_read = 1 WHERE id = ? AND user_id = ?");
@@ -95,7 +110,10 @@ if (isset($_GET['mark_read_id'])) {
     redirect_to('notifications.php');
 }
 
+<<<<<<< HEAD
 // FETCH 1: Fetch survey notifications
+=======
+>>>>>>> d29f5ea (Update student prediction system)
 $sql = "SELECT a.*, s.full_name, s.student_no, s.year_level, s.section,
                sur.internet_access, sur.digital_literacy, sur.study_hours, 
                sur.household_income, sur.parental_education, sur.working_student, sur.created_at AS survey_date
@@ -115,7 +133,10 @@ $stmt->bind_param('i', $user_id);
 $stmt->execute();
 $notifications = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 
+<<<<<<< HEAD
 // FETCH 2: Fetch Submitted & Graded Activities
+=======
+>>>>>>> d29f5ea (Update student prediction system)
 $sqlSubmissions = "SELECT sa.*, s.full_name, s.student_no, s.year_level, s.section 
                    FROM tbl_student_activities sa 
                    JOIN tbl_students s ON sa.student_id = s.id 
@@ -136,7 +157,10 @@ page_header('Student Assessment & Submissions');
     </div>
 </div>
 
+<<<<<<< HEAD
 <!-- SECTION 1: SUBMITTED STUDENT ACTIVITIES -->
+=======
+>>>>>>> d29f5ea (Update student prediction system)
 <article class="panel" style="margin-bottom: 2rem;">
     <div class="panel-title">
         <h2 style="color: #0d6efd; font-size: 1.25rem;">📥 Submitted Student Activities</h2>
@@ -191,7 +215,10 @@ page_header('Student Assessment & Submissions');
     <?php endif; ?>
 </article>
 
+<<<<<<< HEAD
 <!-- SECTION 2: SURVEY & ASSESSMENT NOTIFICATIONS -->
+=======
+>>>>>>> d29f5ea (Update student prediction system)
 <article class="panel">
     <div class="panel-title">
         <h2 style="font-size: 1.25rem;">🔔 Self-Assessment Notifications</h2>
@@ -244,7 +271,10 @@ page_header('Student Assessment & Submissions');
     <?php endif; ?>
 </article>
 
+<<<<<<< HEAD
 <!-- SUBMISSION & GRADING REVIEW MODAL -->
+=======
+>>>>>>> d29f5ea (Update student prediction system)
 <div id="submissionModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; align-items: center; justify-content: center;">
     <div style="background: #ffffff; padding: 2rem; border-radius: 8px; max-width: 580px; width: 90%; max-height: 90vh; overflow-y: auto; box-shadow: 0 4px 15px rgba(0,0,0,0.2);">
         <h2 id="subModalTitle" style="margin-top: 0; border-bottom: 2px solid #0d6efd; padding-bottom: 0.5rem; color: #0d6efd;">Review Activity Output</h2>
@@ -268,7 +298,10 @@ page_header('Student Assessment & Submissions');
             </div>
         </div>
 
+<<<<<<< HEAD
         <!-- GRADING FORM -->
+=======
+>>>>>>> d29f5ea (Update student prediction system)
         <form method="POST" style="background: #f0f7ff; padding: 1rem; border-radius: 6px; border: 1px solid #b6d4fe; margin-bottom: 1rem;">
             <input type="hidden" name="activity_id" id="subModalActivityId">
             <h3 style="margin-top: 0; font-size: 1rem; color: #084298;">✏️ Evaluation & Grading</h3>
@@ -291,7 +324,10 @@ page_header('Student Assessment & Submissions');
     </div>
 </div>
 
+<<<<<<< HEAD
 <!-- ASSESSMENT DETAILS MODAL -->
+=======
+>>>>>>> d29f5ea (Update student prediction system)
 <div id="surveyModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; align-items: center; justify-content: center;">
     <div style="background: #ffffff; padding: 2rem; border-radius: 8px; max-width: 600px; width: 90%; box-shadow: 0 4px 15px rgba(0,0,0,0.2);">
         <h2 id="modalStudentName" style="margin-top: 0; border-bottom: 2px solid #eee; padding-bottom: 0.5rem;">Assessment Details</h2>
@@ -316,7 +352,10 @@ page_header('Student Assessment & Submissions');
     </div>
 </div>
 
+<<<<<<< HEAD
 <!-- SEND ACTIVITY MODAL -->
+=======
+>>>>>>> d29f5ea (Update student prediction system)
 <div id="activityModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; align-items: center; justify-content: center;">
     <div style="background: #ffffff; padding: 2rem; border-radius: 8px; max-width: 500px; width: 90%; box-shadow: 0 4px 15px rgba(0,0,0,0.2);">
         <h2 style="margin-top: 0; font-size: 1.3rem;">Send Individual Activity</h2>
@@ -361,7 +400,10 @@ function openSubmissionModal(data) {
     document.getElementById('subModalInstructions').innerText = data.instructions || 'N/A';
     document.getElementById('subModalText').innerText = data.submission_text || 'No additional text or notes provided.';
     
+<<<<<<< HEAD
     // Fill existing grade & feedback if already graded
+=======
+>>>>>>> d29f5ea (Update student prediction system)
     document.getElementById('subModalGrade').value = data.grade || '';
     document.getElementById('subModalFeedback').value = data.feedback || '';
 

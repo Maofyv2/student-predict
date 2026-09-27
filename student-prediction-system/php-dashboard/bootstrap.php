@@ -279,7 +279,6 @@ function page_header(string $title): void
 {
     $user = current_user();
 
-    // Kunin ang unread Student Updates/Assessments para sa Notification Bell (Hina-huli pati lumang profile update messages)
     $unread_count = 0;
     if ($user) {
         $current_user_id = (int) $user['id'];
@@ -332,7 +331,7 @@ function page_header(string $title): void
 
         <?php if ($user): ?>
             <div class="user-menu" style="display: flex; align-items: center; gap: 1.25rem;">
-                <!-- Notification Bell Icon (Gumagana para sa Student Assessments Updates) -->
+
                 <a href="notifications.php" title="Student Assessment Updates" style="position: relative; text-decoration: none; font-size: 1.3rem; display: inline-flex; align-items: center; color: currentColor;">
                     🔔
                     <?php if ($unread_count > 0): ?>
