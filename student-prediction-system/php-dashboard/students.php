@@ -5,31 +5,47 @@ require_login();
 if (isset($_POST['reset_password'])) {
     $student_id = (int) $_POST['student_id'];
     $new_password = $_POST['new_password'] ?? '';
+$current_user = current_user();
 
-    if ($student_id > 0 && !empty($new_password)) {
-        $password_hash = password_hash($new_password, PASSWORD_DEFAULT);
-        $stmt = db()->prepare("UPDATE tbl_students SET password_hash = ? WHERE id = ?");
-        $stmt->bind_param('si', $password_hash, $student_id);
-        $stmt->execute();
+if (isset($_POST['reset_password'])) {
+    if ($user['role'] !== 'Admin' && $user['role'] !== 'Advisor') {
+        redirect_to('students.php');
+    }
+
+    $student_id = (int)$_POST['student_id'];
+    $new_password =$_POST['new_password'] ?? '';
+
+    if ($student_id > 0 && !empty($new_password)) {$password_hash = password_hash($new_password, PASSWORD_DEFAULT);$stmt = db()->prepare("UPDATE tbl_students SET password_hash = ? WHERE id = ?");
+        $stmt->bind_param('si',$password_hash, $student_id);$stmt->execute();
     }
     redirect_to('students.php');
 }
 
-<<<<<<< HEAD
-// BACKEND: Handle Assign Advisor Submission
-=======
->>>>>>> d29f5ea (Update student prediction system)
 if (isset($_POST['assign_advisor'])) {
     $student_id = (int) $_POST['student_id'];
     $advisor_id = (int) $_POST['advisor_id'];
     $stmt = db()->prepare("UPDATE tbl_students SET advisor_id = ? WHERE id = ?");
     $stmt->bind_param('ii', $advisor_id, $student_id);
     $stmt->execute();
+}
+if (isset($_POST['delete_student'])) {
+    if ($user['role'] !== 'Admin' && $user['role'] !== 'Advisor') {
+        redirect_to('students.php');
+    }
+
+    $student_id = (int)$_POST['student_id'];
+    if ($student_id > 0) {$stmt = db()->prepare("DELETE FROM tbl_students WHERE id = ?");
+        $stmt->bind_param('i', $student_id);$stmt->execute();
+    }
     redirect_to('students.php');
 }
 
-$q = trim($_GET['q'] ?? '');
-$sql = "SELECT s.*,
+if (isset($_POST['assign_advisor'])) {$student_id = (int) $_POST['student_id'];$advisor_id = (int) $_POST['advisor_id'];$stmt = db()->prepare("UPDATE tbl_students SET advisor_id = ? WHERE id = ?");
+    $stmt->bind_param('ii',$advisor_id, $student_id);$stmt->execute();
+    redirect_to('students.php');
+}
+
+$q = trim($_GET['q'] ?? '');$sql = "SELECT s.*,
             p.predicted_status,
             p.confidence,
             p.created_at AS predicted_at,
@@ -40,28 +56,19 @@ $sql = "SELECT s.*,
             SELECT MAX(p2.id) FROM tbl_predictions p2 WHERE p2.student_id = s.id
         )";
 
-if ($q !== '') {
-    $sql .= ' WHERE s.student_no LIKE ? OR s.full_name LIKE ? OR s.section LIKE ?';
-    $stmt = db()->prepare($sql . ' ORDER BY s.full_name ASC');
-    $like = '%' . $q . '%';
-    $stmt->bind_param('sss', $like, $like, $like);
-    $stmt->execute();
-    $students = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+if ($q !== '') {$sql .= ' WHERE s.student_no LIKE ? OR s.full_name LIKE ? OR s.section LIKE ?';
+    $stmt = db()->prepare($sql . ' ORDER BY s.full_name ASC');$like = '%' . $q . '\%';$stmt->bind_param('sss', $like,$like, $like);$stmt->execute();
+    $students =$stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 } else {
     $students = db()->query($sql . ' ORDER BY s.full_name ASC')->fetch_all(MYSQLI_ASSOC);
 }
 
 $advisors = db()->query("SELECT id, full_name FROM users WHERE role = 'Advisor'")->fetch_all(MYSQLI_ASSOC);
-$current_user = current_user();
 
 page_header('Students');
 ?>
 
 <style>
-<<<<<<< HEAD
-    /* CSS para sa Reset Modal at Password Input */
-=======
->>>>>>> d29f5ea (Update student prediction system)
     .reset-modal {
         display: none;
         position: fixed;
@@ -129,7 +136,9 @@ page_header('Students');
         <p class="eyebrow">Records</p>
         <h1>Student List</h1>
     </div>
-    <a class="button button-primary" href="add_student.php">Add Student</a>
+    <?php if ($current_user &&$current_user['role'] === 'Admin'): ?>
+        <a class="button button-primary" href="add_student.php">Add Student</a>
+    <?php endif; ?>
 </section>
 
 <form class="toolbar" method="get">
@@ -145,28 +154,36 @@ page_header('Students');
                     <th>School No.</th>
                     <th>Student</th>
                     <th>Year / Section</th>
-                    <th style="text-align: right;">Action</th>
+                    <?php if ($current_user &&$current_user['role'] === 'Admin'): ?>
+                        <th style="text-align: right;">Action</th>
+                    <?php endif; ?>
                 </tr>
             </thead>
             <tbody>
                 <?php if (!$students): ?>
                     <tr>
-                        <td colspan="4" class="empty">No student records found.</td>
+                        <td colspan="<?= ($current_user &&$current_user['role'] === 'Admin') ? 4 : 3 ?>" class="empty">No student records found.</td>
                     </tr>
                 <?php endif; ?>
-                <?php foreach ($students as $student): ?>
+                <?php foreach ($students as$student): ?>
                     <tr>
                         <td><?= h($student['student_no']) ?></td>
                         <td>
                             <strong><?= h($student['full_name']) ?></strong>
                         </td>
-                        <td><?= h($student['year_level'] . ' / ' . $student['section']) ?></td>
-                        <td style="text-align: right;">
-                            <button type="button" class="button button-secondary" style="padding: 6px 12px; font-size: 12px;"
-                                onclick="openResetModal(<?= $student['id'] ?>, '<?= h(addslashes($student['full_name'])) ?>', '<?= h(addslashes($student['student_no'])) ?>')">
-                                Reset Password
-                            </button>
-                        </td>
+                        <td><?= h($student['year_level'] . ' / ' .$student['section']) ?></td>
+                        <?php if ($current_user &&$current_user['role'] === 'Admin'): ?>
+                            <td style="text-align: right; display: flex; gap: 6px; justify-content: flex-end; align-items: center;">
+                                <button type="button" class="button button-secondary" style="padding: 6px 12px; font-size: 12px;"
+                                    onclick="openResetModal(<?= $student['id'] ?>, '<?= h(addslashes($student['full_name'])) ?>', '<?= h(addslashes($student['student_no'])) ?>')">
+                                    Reset Password
+                                </button>
+                                <form method="POST" action="students.php" onsubmit="return confirm('Are you sure you want to delete this student?');" style="margin: 0;">
+                                    <input type="hidden" name="student_id" value="<?= $student['id'] ?>">
+                                    <button type="submit" name="delete_student" class="button button-secondary" style="padding: 6px 12px; font-size: 12px; background: #fee2e2; color: #991b1b; border: 1px solid #f87171; border-radius: 4px; cursor: pointer;">Delete</button>
+                                </form>
+                            </td>
+                        <?php endif; ?>
                     </tr>
                 <?php endforeach; ?>
             </tbody>
@@ -174,10 +191,8 @@ page_header('Students');
     </div>
 </section>
 
-<<<<<<< HEAD
-<!-- RESET PASSWORD MODAL -->
-=======
->>>>>>> d29f5ea (Update student prediction system)
+<?php if ($current_user &&$current_user['role'] === 'Admin'): ?>
+>>>>>>> 43281ac (Initial commit - Student management system)
 <div id="resetModal" class="reset-modal">
     <div class="reset-modal-card">
         <h3 style="margin: 0 0 6px 0; color: #1e293b; font-size: 20px;">Reset Password</h3>
@@ -238,5 +253,6 @@ function toggleModalPassword() {
     }
 }
 </script>
+<?php endif; ?>
 
 <?php page_footer(); ?>

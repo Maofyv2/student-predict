@@ -1,21 +1,25 @@
 <?php
-declare(strict_types=1);
+if (!defined('E_DEPRECATED')) {
+    error_reporting(E_ALL & ~E_NOTICE & ~E_DEPRECATED);
+} else {
+    error_reporting(E_ALL & ~E_NOTICE);
+}
 
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
-const DB_HOST = '127.0.0.1';
-const DB_USER = 'root';
-const DB_PASS = '';
-const DB_NAME = 'student_prediction_system';
-const API_BASE_URL = 'http://127.0.0.1:5000';
+define('DB_HOST', '127.0.0.1');
+define('DB_USER', 'root');
+define('DB_PASS', '');
+define('DB_NAME', 'student_prediction_system');
+define('API_BASE_URL', 'http://127.0.0.1:5000');
 
-function h(?string $value): string
-{
+function h($value) {
     return htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
 }
 
-function db(): mysqli
-{
+function db() {
     static $conn = null;
     if ($conn instanceof mysqli) {
         return $conn;
@@ -23,21 +27,19 @@ function db(): mysqli
 
     mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
     $conn = new mysqli(DB_HOST, DB_USER, DB_PASS);
-    $conn->set_charset('utf8mb4');
-    $conn->query('CREATE DATABASE IF NOT EXISTS `' . DB_NAME . '` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci');
+    $conn->set_charset('utf8mb4');$conn->query('CREATE DATABASE IF NOT EXISTS `' . DB_NAME . '` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci');
     $conn->select_db(DB_NAME);
     ensure_schema($conn);
     return $conn;
 }
 
-function ensure_schema(mysqli $conn): void
-{
+function ensure_schema($conn) {
     static $ready = false;
     if ($ready) {
         return;
     }
 
-    $statements = [
+    $statements = array(
         "CREATE TABLE IF NOT EXISTS users (
             id INT AUTO_INCREMENT PRIMARY KEY,
             full_name VARCHAR(120) NOT NULL,
@@ -45,6 +47,14 @@ function ensure_schema(mysqli $conn): void
             password_hash VARCHAR(255) NOT NULL,
             role ENUM('Admin','Faculty','Advisor') NOT NULL DEFAULT 'Advisor',
             is_active TINYINT(1) NOT NULL DEFAULT 1,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+
+        "CREATE TABLE IF NOT EXISTS tbl_professors (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            full_name VARCHAR(160) NOT NULL,
+            department VARCHAR(100) NOT NULL,
+            email VARCHAR(120) NOT NULL UNIQUE,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
 
@@ -133,74 +143,72 @@ function ensure_schema(mysqli $conn): void
             CONSTRAINT fk_advice_student FOREIGN KEY (student_id) REFERENCES tbl_students(id) ON DELETE CASCADE,
             CONSTRAINT fk_advice_advisor FOREIGN KEY (advisor_id) REFERENCES users(id) ON DELETE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
-    ];
+    );
 
-    foreach ($statements as $statement) {
+    foreach ($statements as$statement) {
         $conn->query($statement);
     }
 
-    $cols = $conn->query("SHOW COLUMNS FROM tbl_academic_records LIKE 'semi_final_grade'");
-    if ($cols->num_rows === 0) {
-        $conn->query("ALTER TABLE tbl_academic_records ADD COLUMN semi_final_grade DECIMAL(5,2) DEFAULT 0 AFTER midterm_grade");
+    $cols =$conn->query("SHOW COLUMNS FROM tbl_academic_records LIKE 'semi_final_grade'");
+    if ($cols->num_rows === 0) {$conn->query("ALTER TABLE tbl_academic_records ADD COLUMN semi_final_grade DECIMAL(5,2) DEFAULT 0 AFTER midterm_grade");
         $conn->query("ALTER TABLE tbl_academic_records ADD COLUMN final_grade DECIMAL(5,2) DEFAULT 0 AFTER semi_final_grade");
     }
 
-    seed_users($conn);
-    $ready = true;
+    seed_users($conn);$ready = true;
 }
 
-function seed_users(mysqli $conn): void
-{
-    $count = (int) $conn->query('SELECT COUNT(*) AS total FROM users')->fetch_assoc()['total'];
+function seed_users($conn) {
+    $res =$conn->query('SELECT COUNT(*) AS total FROM users');
+    $row =$res->fetch_assoc();
+    $count = (int)$row['total'];
     if ($count > 0) {
         return;
     }
 
-    $users = [
-        ['System Administrator', 'admin', 'admin123', 'Admin'],
-        ['Academic Advisor', 'advisor', 'advisor123', 'Advisor'],
-    ];
+    $users = array(
+        array('System Administrator', 'admin', 'admin123', 'Admin'),
+        array('Academic Advisor', 'advisor', 'advisor123', 'Advisor')
+    );
 
-    $stmt = $conn->prepare('INSERT INTO users (full_name, username, password_hash, role) VALUES (?, ?, ?, ?)');
-    foreach ($users as [$name, $username, $password, $role]) {
+    $stmt =$conn->prepare('INSERT INTO users (full_name, username, password_hash, role) VALUES (?, ?, ?, ?)');
+    foreach ($users as$u) {
+        $name =$u[0];
+        $username =$u[1];
+        $password =$u[2];
+        $role =$u[3];
         $hash = password_hash($password, PASSWORD_DEFAULT);
-        $stmt->bind_param('ssss', $name, $username, $hash, $role);
-        $stmt->execute();
+        $stmt->bind_param('ssss',$name, $username,$hash, $role);$stmt->execute();
     }
 }
 
-function current_user(): ?array
-{
-    return $_SESSION['user'] ?? null;
+function current_user() {
+    return isset($_SESSION['user']) ?$_SESSION['user'] : null;
 }
 
-function require_login(): void
-{
+function require_login() {
     if (!current_user()) {
         header('Location: index.php');
         exit;
     }
 }
 
-function redirect_to(string $path): void
-{
+function redirect_to($path) {
     header('Location: ' . $path);
     exit;
 }
 
-function api_request(string $method, string $path, ?array $payload = null): array
-{
-    $ch = curl_init(API_BASE_URL . $path);
-    curl_setopt_array($ch, [
+function api_request($method, $path,$payload = null) {
+    $ch = curl_init(API_BASE_URL .$path);
+    curl_setopt_array($ch, array(
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_CUSTOMREQUEST => $method,
         CURLOPT_CONNECTTIMEOUT => 2,
         CURLOPT_TIMEOUT => 8,
-    ]);
+    ));
 
     if ($payload !== null) {
         curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
-        curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-Type: application/json'));
     }
 
     $raw = curl_exec($ch);
@@ -209,89 +217,100 @@ function api_request(string $method, string $path, ?array $payload = null): arra
     curl_close($ch);
 
     if ($raw === false || $error) {
-        return ['ok' => false, 'status' => 0, 'error' => $error ?: 'Unable to reach Flask API.'];
+        return array('ok' => false, 'status' => 0, 'error' => $error ? $error : 'Unable to reach Flask API.');
     }
 
     $data = json_decode($raw, true);
-    if ($status >= 400) {
-        return ['ok' => false, 'status' => $status, 'error' => $data['error'] ?? 'API request failed.'];
+    if ($status >= 400) {$err_msg = isset($data['error']) ?$data['error'] : 'API request failed.';
+        return array('ok' => false, 'status' => $status, 'error' =>$err_msg);
     }
 
-    return ['ok' => true, 'status' => $status, 'data' => $data];
+    return array('ok' => true, 'status' => $status, 'data' =>$data);
 }
 
-function model_metadata(): array
-{
+function model_metadata() {
     $path = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'model' . DIRECTORY_SEPARATOR . 'model_metadata.json';
     if (!is_file($path)) {
-        return [];
+        return array();
     }
 
     $json = json_decode((string) file_get_contents($path), true);
-    return is_array($json) ? $json : [];
+    return is_array($json) ?$json : array();
 }
 
-function status_class(string $status): string
-{
-    return match ($status) {
-        'Pass' => 'status-pass',
-        'At-Risk' => 'status-risk',
-        'Fail' => 'status-fail',
-        default => 'status-muted',
-    };
+function status_class($status) {
+    switch ($status) {
+        case 'Pass':
+            return 'status-pass';
+        case 'At-Risk':
+            return 'status-risk';
+        case 'Fail':
+            return 'status-fail';
+        default:
+            return 'status-muted';
+    }
 }
 
-function severity_class(string $severity): string
-{
-    return match ($severity) {
-        'Low', 'Info' => 'status-muted',
-        'Medium' => 'status-pass',
-        'High' => 'status-risk',
-        'Critical' => 'status-fail',
-        default => 'status-muted',
-    };
+function severity_class($severity) {
+    switch ($severity) {
+        case 'Low':
+        case 'Info':
+            return 'status-muted';
+        case 'Medium':
+            return 'status-pass';
+        case 'High':
+            return 'status-risk';
+        case 'Critical':
+            return 'status-fail';
+        default:
+            return 'status-muted';
+    }
 }
 
-function create_alert(int $student_id, int $user_id, string $type, string $severity, string $message): bool
-{
-    $stmt = db()->prepare("INSERT INTO tbl_alerts (student_id, user_id, alert_type, severity, message) VALUES (?, ?, ?, ?, ?)");
-    $stmt->bind_param('iisss', $student_id, $user_id, $type, $severity, $message);
+function create_alert($student_id,$user_id, $type,$severity, $message) {$stmt = db()->prepare("INSERT INTO tbl_alerts (student_id, user_id, alert_type, severity, message) VALUES (?, ?, ?, ?, ?)");
+    $stmt->bind_param('iisss',$student_id, $user_id,$type, $severity,$message);
     return $stmt->execute();
 }
 
-function get_alerts(int $user_id, bool $only_unread = false): array
-{
-    $sql = "SELECT a.*, s.full_name, s.student_no FROM tbl_alerts a 
+function get_alerts($user_id, $only_unread = false) {$sql = "SELECT a.*, s.full_name, s.student_no FROM tbl_alerts a 
             JOIN tbl_students s ON a.student_id = s.id 
             WHERE a.user_id = ?";
-    if ($only_unread) {
-        $sql .= " AND a.is_read = 0";
+    if ($only_unread) {$sql .= " AND a.is_read = 0";
     }
     $sql .= " ORDER BY a.created_at DESC";
     
-    $stmt = db()->prepare($sql);
-    $stmt->bind_param('i', $user_id);
-    $stmt->execute();
+    $stmt = db()->prepare($sql);$stmt->bind_param('i', $user_id);$stmt->execute();
     return $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 }
 
-function page_header(string $title): void
+function get_professors() {
+    $result = db()->query("SELECT * FROM tbl_professors ORDER BY full_name ASC");
+    return $result ? $result->fetch_all(MYSQLI_ASSOC) : array();
+}
+
+function add_professor(string $full_name, string $department, string $email): bool
 {
-    $user = current_user();
+    try {
+        $stmt = db()->prepare("INSERT INTO tbl_professors (full_name, department, email) VALUES (?, ?, ?)");
+        $stmt->bind_param('sss', $full_name, $department, $email);
+        return $stmt->execute();
+    } catch (mysqli_sql_exception $e) {
+        return false;
+    }
+}
+
+function page_header($title) {$user = current_user();
 
     $unread_count = 0;
-    if ($user) {
-        $current_user_id = (int) $user['id'];
-        $stmtNotif = db()->prepare(
+    if ($user) {$current_user_id = (int) $user['id'];$stmtNotif = db()->prepare(
             "SELECT COUNT(*) AS total 
              FROM tbl_alerts 
              WHERE user_id = ? 
                AND (alert_type = 'Student Update' OR message LIKE '%updated their self-assessment profile%') 
                AND is_read = 0"
         );
-        $stmtNotif->bind_param('i', $current_user_id);
-        $stmtNotif->execute();
-        $unread_count = (int) ($stmtNotif->get_result()->fetch_assoc()['total'] ?? 0);
+        $stmtNotif->bind_param('i',$current_user_id);
+        $stmtNotif->execute();$resNotif = $stmtNotif->get_result()->fetch_assoc();$unread_count = isset($resNotif['total']) ? (int)$resNotif['total'] : 0;
     }
     ?>
     <!doctype html>
@@ -324,6 +343,10 @@ function page_header(string $title): void
                 <a href="reports.php">Reports</a>
             <?php endif; ?>
 
+            <?php if ($user && $user['role'] === 'Admin'): ?>
+                <a href="professors.php">Professors</a>
+            <?php endif; ?>
+
             <?php if ($user && $user['role'] === 'Advisor'): ?>
                 <a href="scholarships.php">Scholarships</a>
             <?php endif; ?>
@@ -350,8 +373,7 @@ function page_header(string $title): void
     <?php
 }
 
-function page_footer(): void
-{
+function page_footer() {
     ?>
     </main>
     </body>
@@ -359,33 +381,27 @@ function page_footer(): void
     <?php
 }
 
-function latest_predictions(int $limit = 8, ?int $advisor_id = null): array
-{
-    $sql = "SELECT p.*, s.student_no, s.full_name, s.year_level, s.section
+function latest_predictions($limit = 8, $advisor_id = null) {$sql = "SELECT p.*, s.student_no, s.full_name, s.year_level, s.section
              FROM tbl_predictions p
              INNER JOIN tbl_students s ON s.id = p.student_id";
     
-    if ($advisor_id !== null) {
-        $sql .= " WHERE s.advisor_id = ?";
+    if ($advisor_id !== null) {$sql .= " WHERE s.advisor_id = ?";
     }
     
     $sql .= " ORDER BY p.created_at DESC LIMIT ?";
     
     $stmt = db()->prepare($sql);
-    if ($advisor_id !== null) {
-        $stmt->bind_param('ii', $advisor_id, $limit);
+    if ($advisor_id !== null) {$stmt->bind_param('ii', $advisor_id,$limit);
     } else {
-        $stmt->bind_param('i', $limit);
+        $stmt->bind_param('i',$limit);
     }
     
     $stmt->execute();
     return $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 }
 
-function prediction_counts(?int $advisor_id = null): array
-{
-    $counts = ['Pass' => 0, 'At-Risk' => 0, 'Fail' => 0];
-    $sql = "SELECT predicted_status, COUNT(*) AS total
+function prediction_counts($advisor_id = null) {
+    $counts = array('Pass' => 0, 'At-Risk' => 0, 'Fail' => 0);$sql = "SELECT predicted_status, COUNT(*) AS total
              FROM tbl_predictions p
              INNER JOIN (
                 SELECT student_id, MAX(id) AS latest_id
@@ -394,44 +410,37 @@ function prediction_counts(?int $advisor_id = null): array
              ) latest ON latest.latest_id = p.id    
              INNER JOIN tbl_students s ON s.id = p.student_id";
     
-    if ($advisor_id !== null) {
-        $sql .= " WHERE s.advisor_id = ?";
+    if ($advisor_id !== null) {$sql .= " WHERE s.advisor_id = ?";
     }
     
     $sql .= " GROUP BY predicted_status";
     
     $stmt = db()->prepare($sql);
     if ($advisor_id !== null) {
-        $stmt->bind_param('i', $advisor_id);
+        $stmt->bind_param('i',$advisor_id);
     }
     $stmt->execute();
-    $result = $stmt->get_result();
+    $result =$stmt->get_result();
 
-    while ($row = $result->fetch_assoc()) {
-        $counts[$row['predicted_status']] = (int) $row['total'];
+    while ($row = $result->fetch_assoc()) {$counts[$row['predicted_status']] = (int)$row['total'];
     }
     return $counts;
 }
 
-function total_students(?int $advisor_id = null): int
-{
+function total_students($advisor_id = null) {
     if ($advisor_id !== null) {
-        $stmt = db()->prepare('SELECT COUNT(*) AS total FROM tbl_students WHERE advisor_id = ?');
-        $stmt->bind_param('i', $advisor_id);
-        $stmt->execute();
+        $stmt = db()->prepare('SELECT COUNT(*) AS total FROM tbl_students WHERE advisor_id = ?');$stmt->bind_param('i', $advisor_id);$stmt->execute();
         return (int) $stmt->get_result()->fetch_assoc()['total'];
     }
-    return (int) db()->query('SELECT COUNT(*) AS total FROM tbl_students')->fetch_assoc()['total'];
+    $res = db()->query('SELECT COUNT(*) AS total FROM tbl_students');
+    return (int) $res->fetch_assoc()['total'];
 }
 
-function get_student_advice(int $student_id): array
-{
-    $stmt = db()->prepare("SELECT a.*, u.full_name as advisor_name 
+function get_student_advice($student_id) {$stmt = db()->prepare("SELECT a.*, u.full_name as advisor_name 
                           FROM tbl_advice a 
                           JOIN users u ON a.advisor_id = u.id 
                           WHERE a.student_id = ? 
                           ORDER BY a.created_at DESC");
-    $stmt->bind_param('i', $student_id);
-    $stmt->execute();
+    $stmt->bind_param('i', $student_id);$stmt->execute();
     return $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 }
