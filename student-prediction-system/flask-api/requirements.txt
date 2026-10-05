@@ -5,3 +5,4 @@ numpy>=2.0
 pandas>=2.2
 scikit-learn>=1.6
 xgboost>=2.1
+gunicorn>=21.0
