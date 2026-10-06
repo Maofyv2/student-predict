@@ -2,50 +2,64 @@
 require_once __DIR__ . '/bootstrap.php';
 require_login();
 
-if (isset($_POST['reset_password'])) {
-    $student_id = (int) $_POST['student_id'];
-    $new_password = $_POST['new_password'] ?? '';
 $current_user = current_user();
+$user = $current_user;
+$isAdvisor = ($user['role'] === 'Advisor');
+$advisorId = (int)$user['id'];
 
+// --- Reset Password Handler ---
 if (isset($_POST['reset_password'])) {
     if ($user['role'] !== 'Admin' && $user['role'] !== 'Advisor') {
         redirect_to('students.php');
     }
 
-    $student_id = (int)$_POST['student_id'];
-    $new_password =$_POST['new_password'] ?? '';
+    $student_id = (int)($_POST['student_id'] ?? 0);
+    $new_password = $_POST['new_password'] ?? '';
 
-    if ($student_id > 0 && !empty($new_password)) {$password_hash = password_hash($new_password, PASSWORD_DEFAULT);$stmt = db()->prepare("UPDATE tbl_students SET password_hash = ? WHERE id = ?");
-        $stmt->bind_param('si',$password_hash, $student_id);$stmt->execute();
+    if ($student_id > 0 && !empty($new_password)) {
+        // Enforce ownership if Advisor
+        if ($isAdvisor) {
+            $chk = db()->prepare("SELECT id FROM tbl_students WHERE id = ? AND (advisor_id = ? OR professor_id = ?)");
+            $chk->bind_param('iii', $student_id, $advisorId, $advisorId);
+            $chk->execute();
+            if ($chk->get_result()->num_rows === 0) {
+                redirect_to('students.php?error=unauthorized');
+            }
+        }
+
+        $password_hash = password_hash($new_password, PASSWORD_DEFAULT);
+        $stmt = db()->prepare("UPDATE tbl_students SET password_hash = ? WHERE id = ?");
+        $stmt->bind_param('si', $password_hash, $student_id);
+        $stmt->execute();
     }
-    redirect_to('students.php');
+    redirect_to('students.php?msg=pwd_updated');
 }
 
-if (isset($_POST['assign_advisor'])) {
-    $student_id = (int) $_POST['student_id'];
-    $advisor_id = (int) $_POST['advisor_id'];
-    $stmt = db()->prepare("UPDATE tbl_students SET advisor_id = ? WHERE id = ?");
-    $stmt->bind_param('ii', $advisor_id, $student_id);
+// --- Assign Advisor Handler (Admin Only) ---
+if (isset($_POST['assign_advisor']) && $user['role'] === 'Admin') {
+    $student_id = (int)$_POST['student_id'];
+    $assigned_advisor_id = (int)$_POST['advisor_id'];
+    $stmt = db()->prepare("UPDATE tbl_students SET advisor_id = ?, professor_id = ? WHERE id = ?");
+    $stmt->bind_param('iii', $assigned_advisor_id, $assigned_advisor_id, $student_id);
     $stmt->execute();
+    redirect_to('students.php?msg=assigned');
 }
-if (isset($_POST['delete_student'])) {
-    if ($user['role'] !== 'Admin' && $user['role'] !== 'Advisor') {
-        redirect_to('students.php');
-    }
 
+// --- Delete Student Handler (Admin Only) ---
+if (isset($_POST['delete_student']) && $user['role'] === 'Admin') {
     $student_id = (int)$_POST['student_id'];
-    if ($student_id > 0) {$stmt = db()->prepare("DELETE FROM tbl_students WHERE id = ?");
-        $stmt->bind_param('i', $student_id);$stmt->execute();
+    if ($student_id > 0) {
+        $stmt = db()->prepare("DELETE FROM tbl_students WHERE id = ?");
+        $stmt->bind_param('i', $student_id);
+        $stmt->execute();
     }
-    redirect_to('students.php');
+    redirect_to('students.php?msg=deleted');
 }
 
-if (isset($_POST['assign_advisor'])) {$student_id = (int) $_POST['student_id'];$advisor_id = (int) $_POST['advisor_id'];$stmt = db()->prepare("UPDATE tbl_students SET advisor_id = ? WHERE id = ?");
-    $stmt->bind_param('ii',$advisor_id, $student_id);$stmt->execute();
-    redirect_to('students.php');
-}
+// --- Fetch Students with Search and Permission Scoping ---
+$q = trim($_GET['q'] ?? '');
 
-$q = trim($_GET['q'] ?? '');$sql = "SELECT s.*,
+$sql = "SELECT s.*,
             p.predicted_status,
             p.confidence,
             p.created_at AS predicted_at,
@@ -56,14 +70,43 @@ $q = trim($_GET['q'] ?? '');$sql = "SELECT s.*,
             SELECT MAX(p2.id) FROM tbl_predictions p2 WHERE p2.student_id = s.id
         )";
 
-if ($q !== '') {$sql .= ' WHERE s.student_no LIKE ? OR s.full_name LIKE ? OR s.section LIKE ?';
-    $stmt = db()->prepare($sql . ' ORDER BY s.full_name ASC');$like = '%' . $q . '\%';$stmt->bind_param('sss', $like,$like, $like);$stmt->execute();
-    $students =$stmt->get_result()->fetch_all(MYSQLI_ASSOC);
-} else {
-    $students = db()->query($sql . ' ORDER BY s.full_name ASC')->fetch_all(MYSQLI_ASSOC);
+$conditions = [];
+$params = [];
+$types = '';
+
+// Ownership: Professors can ONLY view and search their own students
+if ($isAdvisor) {
+    $conditions[] = "(s.advisor_id = ? OR s.professor_id = ?)";
+    $params[] = $advisorId;
+    $params[] = $advisorId;
+    $types .= 'ii';
 }
 
-$advisors = db()->query("SELECT id, full_name FROM users WHERE role = 'Advisor'")->fetch_all(MYSQLI_ASSOC);
+// Search by Student Name OR Student ID (partial match)
+if ($q !== '') {
+    $conditions[] = "(s.full_name LIKE ? OR s.student_no LIKE ?)";
+    $like = '%' . $q . '%';
+    $params[] = $like;
+    $params[] = $like;
+    $types .= 'ss';
+}
+
+if (!empty($conditions)) {
+    $sql .= " WHERE " . implode(" AND ", $conditions);
+}
+
+$sql .= " ORDER BY s.full_name ASC";
+
+if (!empty($params)) {
+    $stmt = db()->prepare($sql);
+    $stmt->bind_param($types, ...$params);
+    $stmt->execute();
+    $students = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+} else {
+    $students = db()->query($sql)->fetch_all(MYSQLI_ASSOC);
+}
+
+$advisors = db()->query("SELECT id, full_name FROM users WHERE role = 'Advisor' AND is_active = 1 ORDER BY full_name ASC")->fetch_all(MYSQLI_ASSOC);
 
 page_header('Students');
 ?>
@@ -92,37 +135,6 @@ page_header('Students');
         box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.2);
     }
 
-    .pwd-input-wrapper {
-        position: relative;
-        display: flex;
-        align-items: center;
-        margin-top: 6px;
-    }
-
-    .pwd-input-wrapper input {
-        width: 100%;
-        padding: 10px 42px 10px 14px;
-        border: 1px solid #cbd5e1;
-        border-radius: 6px;
-        font-size: 14px;
-    }
-
-    .pwd-toggle-btn {
-        position: absolute;
-        right: 10px;
-        background: none;
-        border: none;
-        cursor: pointer;
-        color: #64748b;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-
-    .pwd-toggle-btn:hover {
-        color: #2563eb;
-    }
-
     .modal-actions {
         display: flex;
         justify-content: flex-end;
@@ -133,17 +145,38 @@ page_header('Students');
 
 <section class="page-heading">
     <div>
-        <p class="eyebrow">Records</p>
-        <h1>Student List</h1>
+        <p class="eyebrow"><?= $isAdvisor ? 'Assigned Students' : 'Records Management' ?></p>
+        <h1><?= $isAdvisor ? 'My Assigned Students' : 'All Students List' ?></h1>
     </div>
-    <?php if ($current_user &&$current_user['role'] === 'Admin'): ?>
+    <?php if ($user['role'] === 'Admin'): ?>
         <a class="button button-primary" href="add_student.php">Add Student</a>
     <?php endif; ?>
 </section>
 
-<form class="toolbar" method="get">
-    <input type="search" name="q" value="<?= h($q) ?>" placeholder="Search students">
-    <button class="button button-secondary" type="submit">Search</button>
+<?php if (isset($_GET['msg'])): ?>
+    <?php if ($_GET['msg'] === 'added'): ?>
+        <div class="alert alert-success">Student successfully registered and assigned.</div>
+    <?php elseif ($_GET['msg'] === 'pwd_updated'): ?>
+        <div class="alert alert-success">Student password successfully updated.</div>
+    <?php elseif ($_GET['msg'] === 'deleted'): ?>
+        <div class="alert alert-success">Student record deleted.</div>
+    <?php elseif ($_GET['msg'] === 'assigned'): ?>
+        <div class="alert alert-success">Professor assignment updated.</div>
+    <?php endif; ?>
+<?php endif; ?>
+
+<?php if (isset($_GET['error']) && $_GET['error'] === 'unauthorized'): ?>
+    <div class="alert alert-error">Access denied: You can only manage students assigned to you.</div>
+<?php endif; ?>
+
+<form class="toolbar" method="get" action="students.php">
+    <div style="display: flex; gap: 8px; width: 100%;">
+        <input type="search" name="q" value="<?= h($q) ?>" placeholder="Search by Student Name or Student ID (e.g. Juan / 2024-00123)..." style="flex: 1;">
+        <button class="button button-primary" type="submit">Search</button>
+        <?php if ($q !== ''): ?>
+            <a href="students.php" class="button button-secondary">Clear</a>
+        <?php endif; ?>
+    </div>
 </form>
 
 <section class="panel">
@@ -151,39 +184,81 @@ page_header('Students');
         <table>
             <thead>
                 <tr>
-                    <th>School No.</th>
-                    <th>Student</th>
+                    <th style="width: 130px;">Student ID</th>
+                    <th>Student Name</th>
                     <th>Year / Section</th>
-                    <?php if ($current_user &&$current_user['role'] === 'Admin'): ?>
-                        <th style="text-align: right;">Action</th>
+                    <?php if (!$isAdvisor): ?>
+                        <th>Assigned Professor</th>
                     <?php endif; ?>
+                    <th>Latest Prediction</th>
+                    <th style="text-align: right;">Action</th>
                 </tr>
             </thead>
             <tbody>
-                <?php if (!$students): ?>
+                <?php if (empty($students)): ?>
                     <tr>
-                        <td colspan="<?= ($current_user &&$current_user['role'] === 'Admin') ? 4 : 3 ?>" class="empty">No student records found.</td>
+                        <td colspan="<?= $isAdvisor ? '5' : '6' ?>" class="empty">
+                            <?php if ($q !== ''): ?>
+                                No students found matching "<?= h($q) ?>" <?= $isAdvisor ? 'in your assigned list' : '' ?>.
+                            <?php else: ?>
+                                <?= $isAdvisor ? 'You have no assigned students yet.' : 'No student records found.' ?>
+                            <?php endif; ?>
+                        </td>
                     </tr>
                 <?php endif; ?>
-                <?php foreach ($students as$student): ?>
+                <?php foreach ($students as $student): ?>
                     <tr>
-                        <td><?= h($student['student_no']) ?></td>
+                        <td>
+                            <span class="pill status-muted"><?= h($student['student_no']) ?></span>
+                        </td>
                         <td>
                             <strong><?= h($student['full_name']) ?></strong>
                         </td>
-                        <td><?= h($student['year_level'] . ' / ' .$student['section']) ?></td>
-                        <?php if ($current_user &&$current_user['role'] === 'Admin'): ?>
-                            <td style="text-align: right; display: flex; gap: 6px; justify-content: flex-end; align-items: center;">
-                                <button type="button" class="button button-secondary" style="padding: 6px 12px; font-size: 12px;"
+                        <td><?= h($student['year_level'] . ' • ' . $student['section']) ?></td>
+                        <?php if (!$isAdvisor): ?>
+                            <td>
+                                <?php if (!empty($student['advisor_name'])): ?>
+                                    <span style="font-weight: 500; color: var(--text);"><?= h($student['advisor_name']) ?></span>
+                                <?php else: ?>
+                                    <span style="color: var(--muted); font-size: 0.8rem; font-style: italic;">Unassigned</span>
+                                <?php endif; ?>
+                            </td>
+                        <?php endif; ?>
+                        <td>
+                            <?php if (!empty($student['predicted_status'])): ?>
+                                <span class="status-badge <?= severity_class($student['predicted_status'] === 'Pass' ? 'Medium' : ($student['predicted_status'] === 'At-Risk' ? 'High' : 'Critical')) ?>">
+                                    <?= h($student['predicted_status']) ?>
+                                </span>
+                                <?php if (!empty($student['confidence'])): ?>
+                                    <small style="color: var(--muted); margin-top: 2px;">
+                                        <?= round((float)$student['confidence'] * 100, 1) ?>% conf
+                                    </small>
+                                <?php endif; ?>
+                            <?php else: ?>
+                                <span style="color: var(--muted); font-size: 0.8rem;">Not predicted</span>
+                            <?php endif; ?>
+                        </td>
+                        <td style="text-align: right;">
+                            <div style="display: inline-flex; gap: 6px; justify-content: flex-end; align-items: center;">
+                                <?php if ($isAdvisor): ?>
+                                    <a href="enter_scores.php?student_id=<?= $student['id'] ?>" class="button button-primary" style="padding: 5px 12px; font-size: 12px; text-decoration: none;">
+                                        Enter Scores &amp; Predict
+                                    </a>
+                                <?php endif; ?>
+
+                                <button type="button" class="button button-secondary" style="padding: 5px 10px; font-size: 12px;"
                                     onclick="openResetModal(<?= $student['id'] ?>, '<?= h(addslashes($student['full_name'])) ?>', '<?= h(addslashes($student['student_no'])) ?>')">
                                     Reset Password
                                 </button>
-                                <form method="POST" action="students.php" onsubmit="return confirm('Are you sure you want to delete this student?');" style="margin: 0;">
-                                    <input type="hidden" name="student_id" value="<?= $student['id'] ?>">
-                                    <button type="submit" name="delete_student" class="button button-secondary" style="padding: 6px 12px; font-size: 12px; background: #fee2e2; color: #991b1b; border: 1px solid #f87171; border-radius: 4px; cursor: pointer;">Delete</button>
-                                </form>
-                            </td>
-                        <?php endif; ?>
+
+                                <?php if ($user['role'] === 'Admin'): ?>
+                                    <form method="POST" action="students.php" onsubmit="return confirm('Are you sure you want to delete this student record?');" style="margin: 0; display: inline;">
+                                        <input type="hidden" name="student_id" value="<?= $student['id'] ?>">
+                                        <button type="submit" name="delete_student" class="button button-secondary" style="padding: 5px 10px; font-size: 12px; background: #fee2e2; color: #991b1b; border: 1px solid #f87171; border-radius: 4px; cursor: pointer;">Delete</button>
+                                    </form>
+                                <?php endif; ?>
+                            </div>
+                        </td>
                     </tr>
                 <?php endforeach; ?>
             </tbody>
@@ -191,31 +266,30 @@ page_header('Students');
     </div>
 </section>
 
-<?php if ($current_user &&$current_user['role'] === 'Admin'): ?>
->>>>>>> 43281ac (Initial commit - Student management system)
+<!-- Reset Password Modal with Eye Icon -->
 <div id="resetModal" class="reset-modal">
     <div class="reset-modal-card">
-        <h3 style="margin: 0 0 6px 0; color: #1e293b; font-size: 20px;">Reset Password</h3>
+        <h3 style="margin: 0 0 6px 0; color: #1e293b; font-size: 20px;">Reset Student Password</h3>
         <p style="color: #64748b; font-size: 14px; margin-bottom: 20px;" id="modalStudentInfo"></p>
 
         <form method="POST">
             <input type="hidden" name="student_id" id="modalStudentId">
 
             <div>
-                <label style="font-weight: 600; color: #334155; font-size: 14px;">New Password</label>
-                <div class="pwd-input-wrapper">
+                <label style="font-weight: 600; color: #334155; font-size: 14px; display: block; margin-bottom: 4px;">New Password</label>
+                <div class="password-input-wrapper">
                     <input type="password" id="modalPasswordInput" name="new_password" placeholder="Enter new password" required>
-                    <button type="button" class="pwd-toggle-btn" onclick="toggleModalPassword()">
-                        <svg id="modalEyeIcon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                            <circle cx="12" cy="12" r="3"></circle>
+                    <button type="button" class="password-toggle-eye" id="modalPwdToggleBtn" onclick="toggleModalPassword()" aria-label="Show password" title="Show password">
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                            <circle cx="12" cy="12" r="3"/>
                         </svg>
                     </button>
                 </div>
             </div>
 
             <div class="modal-actions">
-                <button type="button" class="button button-secondary" onclick="closeResetModal()">Cancel</button>
+                <button type="button" class="button button-outline" onclick="closeResetModal()">Cancel</button>
                 <button type="submit" name="reset_password" class="button button-primary">Update Password</button>
             </div>
         </form>
@@ -227,6 +301,7 @@ function openResetModal(id, name, studentNo) {
     document.getElementById('modalStudentId').value = id;
     document.getElementById('modalStudentInfo').innerText = 'Set new password for ' + name + ' (' + studentNo + ')';
     document.getElementById('modalPasswordInput').value = '';
+    document.getElementById('modalPasswordInput').type = 'password';
     document.getElementById('resetModal').style.display = 'flex';
 }
 
@@ -236,23 +311,19 @@ function closeResetModal() {
 
 function toggleModalPassword() {
     const pwdInput = document.getElementById('modalPasswordInput');
-    const eyeIcon = document.getElementById('modalEyeIcon');
+    const btn = document.getElementById('modalPwdToggleBtn');
+    if (!pwdInput || !btn) return;
 
-    if (pwdInput.type === 'password') {
-        pwdInput.type = 'text';
-        eyeIcon.innerHTML = `
-            <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
-            <line x1="1" y1="1" x2="23" y2="23"></line>
-        `;
-    } else {
-        pwdInput.type = 'password';
-        eyeIcon.innerHTML = `
-            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-            <circle cx="12" cy="12" r="3"></circle>
-        `;
-    }
+    const isPassword = pwdInput.type === 'password';
+    pwdInput.type = isPassword ? 'text' : 'password';
+
+    const eyeOpen = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
+    const eyeSlash = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`;
+
+    btn.innerHTML = isPassword ? eyeSlash : eyeOpen;
+    btn.setAttribute('aria-label', isPassword ? 'Hide password' : 'Show password');
+    btn.setAttribute('title', isPassword ? 'Hide password' : 'Show password');
 }
 </script>
-<?php endif; ?>
 
 <?php page_footer(); ?>

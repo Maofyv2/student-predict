@@ -1,12 +1,8 @@
 <?php
-$servername = "localhost";
-$username = "root";
-$password = "";
-$dbname = "student_prediction_system";
+/**
+ * Database connection provider.
+ * Connects to the local database defined in bootstrap.php.
+ */
+require_once __DIR__ . '/bootstrap.php';
 
-$conn = mysqli_connect($servername, $username, $password, $dbname);
-
-if (!$conn) {
-    die("Connection failed: " . mysqli_connect_error());
-}
-?>
+$conn = db();

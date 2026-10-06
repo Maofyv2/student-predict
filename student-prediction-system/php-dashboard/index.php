@@ -25,6 +25,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         redirect_to('dashboard.php');
     }
 
+    // Check if this is a student logging in
+    $stmtStu = db()->prepare('SELECT * FROM tbl_students WHERE student_no = ? LIMIT 1');
+    $stmtStu->bind_param('s', $username);
+    $stmtStu->execute();
+    $student = $stmtStu->get_result()->fetch_assoc();
+
+    if ($student) {
+        $validStu = false;
+        if (!empty($student['password_hash'])) {
+            $validStu = password_verify($password, $student['password_hash']);
+        } elseif ($password === 'student123') {
+            $validStu = true;
+            $newHash = password_hash('student123', PASSWORD_DEFAULT);
+            $uStmt = db()->prepare('UPDATE tbl_students SET password_hash = ? WHERE id = ?');
+            $uStmt->bind_param('si', $newHash, $student['id']);
+            $uStmt->execute();
+        }
+
+        if ($validStu) {
+            $_SESSION['student'] = $student;
+            redirect_to('student_portal.php');
+        }
+    }
+
     $error = 'Invalid username or password.';
 }
 ?>
@@ -35,7 +59,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Login | Arellano BSIT Prediction System</title>
     <link rel="stylesheet" href="assets.css">
-    <link rel="stylesheet" href="css.css">
 </head>
 <body class="login-body">
     <main class="login-shell">
@@ -59,7 +82,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </label>
                 <label>
                     <span>Password</span>
-                    <input type="password" name="password" autocomplete="current-password" required>
+                    <div class="password-input-wrapper">
+                        <input type="password" name="password" id="loginPassword" autocomplete="current-password" required>
+                        <button type="button" class="password-toggle-eye" onclick="togglePasswordVisibility('loginPassword', this)" aria-label="Show password" title="Show password">
+                            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                                <circle cx="12" cy="7" r="0"/>
+                                <circle cx="12" cy="12" r="3"/>
+                            </svg>
+                        </button>
+                    </div>
                 </label>
                 <button class="button button-primary" type="submit">Login</button>
             </form>
@@ -70,5 +102,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
         </section>
     </main>
+
+    <script>
+    function togglePasswordVisibility(inputId, btn) {
+        const input = document.getElementById(inputId);
+        if (!input) return;
+        const isPassword = input.type === 'password';
+        input.type = isPassword ? 'text' : 'password';
+
+        const eyeOpen = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
+        const eyeSlash = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`;
+
+        btn.innerHTML = isPassword ? eyeSlash : eyeOpen;
+        btn.setAttribute('aria-label', isPassword ? 'Hide password' : 'Show password');
+        btn.setAttribute('title', isPassword ? 'Hide password' : 'Show password');
+    }
+    </script>
 </body>
 </html>

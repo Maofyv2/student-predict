@@ -1,5 +1,13 @@
 <?php
-include('db.php');
+require_once __DIR__ . '/bootstrap.php';
+require_login();
+
+$user = current_user();
+if (!$user || !in_array($user['role'], ['Admin', 'Advisor'])) {
+    redirect_to('students.php');
+}
+
+$conn = db();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $student_id = (int)($_POST['student_id'] ?? 0);

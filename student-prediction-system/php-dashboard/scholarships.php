@@ -204,9 +204,9 @@ page_header('Scholarship Eligibility');
                         </td>
                         <td>
                             <?php if ($status['eligible']): ?>
-                                <span class="pill pill-good" style="padding: 8px 16px; font-size: 0.9rem;">✓ QUALIFIED</span>
+                                <span class="pill pill-good" style="padding: 6px 14px; font-size: 0.85rem; font-weight: 700; letter-spacing: 0.03em;">QUALIFIED</span>
                             <?php else: ?>
-                                <span class="pill pill-bad" style="padding: 8px 16px; font-size: 0.9rem;">✕ INELIGIBLE</span>
+                                <span class="pill pill-bad" style="padding: 6px 14px; font-size: 0.85rem; font-weight: 700; letter-spacing: 0.03em;">INELIGIBLE</span>
                                 <div style="font-size: 0.75rem; color: var(--red); margin-top: 6px; font-weight: 600;"><?= h($status['reason']) ?></div>
                             <?php endif; ?>
                         </td>

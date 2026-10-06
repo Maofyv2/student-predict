@@ -16,12 +16,39 @@ function get_performance_summary(): array
 
 function get_at_risk_list(): array
 {
-    $sql = "SELECT s.student_no, s.full_name, s.year_level, s.section, p.predicted_status, p.confidence, p.recommendation, p.risk_factors
+    $sql = "SELECT s.student_no, s.full_name, s.year_level, s.section, p.grading_period, p.predicted_status, p.predicted_grade, p.confidence, p.recommendation, p.risk_factors
             FROM tbl_predictions p
             JOIN tbl_students s ON s.id = p.student_id
             INNER JOIN (SELECT student_id, MAX(id) as latest_id FROM tbl_predictions GROUP BY student_id) latest ON latest.latest_id = p.id
             WHERE p.predicted_status IN ('At-Risk', 'Fail')
             ORDER BY FIELD(p.predicted_status, 'Fail', 'At-Risk')";
+    return db()->query($sql)->fetch_all(MYSQLI_ASSOC);
+}
+
+function get_progressive_report(?string $period = null): array
+{
+    $where = $period && in_array($period, ['Prelim', 'Midterm', 'Semi-Final', 'Final'])
+        ? "WHERE p.grading_period = '" . db()->real_escape_string($period) . "'"
+        : "";
+    $sql = "SELECT p.*, s.student_no, s.full_name, s.year_level, s.section
+            FROM tbl_predictions p
+            JOIN tbl_students s ON s.id = p.student_id
+            {$where}
+            ORDER BY p.created_at DESC";
+    return db()->query($sql)->fetch_all(MYSQLI_ASSOC);
+}
+
+function get_period_summary_stats(): array
+{
+    $sql = "SELECT 
+                COALESCE(grading_period, 'Unspecified') as period,
+                COUNT(*) as total,
+                SUM(CASE WHEN predicted_status = 'Pass' THEN 1 ELSE 0 END) as pass_count,
+                SUM(CASE WHEN predicted_status = 'At-Risk' THEN 1 ELSE 0 END) as risk_count,
+                SUM(CASE WHEN predicted_status = 'Fail' THEN 1 ELSE 0 END) as fail_count,
+                AVG(predicted_grade) as avg_grade
+            FROM tbl_predictions
+            GROUP BY grading_period";
     return db()->query($sql)->fetch_all(MYSQLI_ASSOC);
 }
 
@@ -72,12 +99,127 @@ function get_subject_performance(): array
     return db()->query($sql)->fetch_assoc() ?: [];
 }
 
+// --- Scoped report functions for Advisor/Professor ---
+function get_scoped_performance_summary(int $advisorId): array
+{
+    $stmt = db()->prepare(
+        "SELECT p.predicted_status, COUNT(*) as total
+         FROM tbl_predictions p
+         INNER JOIN (SELECT student_id, MAX(id) as latest_id FROM tbl_predictions GROUP BY student_id) latest ON latest.latest_id = p.id
+         JOIN tbl_students s ON s.id = p.student_id
+         WHERE (s.advisor_id = ? OR s.professor_id = ?)
+         GROUP BY p.predicted_status"
+    );
+    $stmt->bind_param('ii', $advisorId, $advisorId);
+    $stmt->execute();
+    return $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+}
+
+function get_scoped_at_risk_list(int $advisorId): array
+{
+    $stmt = db()->prepare(
+        "SELECT s.student_no, s.full_name, s.year_level, s.section, p.grading_period,
+                p.predicted_status, p.predicted_grade, p.confidence, p.recommendation, p.risk_factors
+         FROM tbl_predictions p
+         JOIN tbl_students s ON s.id = p.student_id
+         INNER JOIN (SELECT student_id, MAX(id) as latest_id FROM tbl_predictions GROUP BY student_id) latest ON latest.latest_id = p.id
+         WHERE p.predicted_status IN ('At-Risk', 'Fail')
+           AND (s.advisor_id = ? OR s.professor_id = ?)
+         ORDER BY FIELD(p.predicted_status, 'Fail', 'At-Risk')"
+    );
+    $stmt->bind_param('ii', $advisorId, $advisorId);
+    $stmt->execute();
+    return $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+}
+
+function get_scoped_progressive_report(int $advisorId, ?string $period = null): array
+{
+    $periodCond = $period && in_array($period, ['Prelim', 'Midterm', 'Semi-Final', 'Final'])
+        ? "AND p.grading_period = '" . db()->real_escape_string($period) . "'"
+        : "";
+    $stmt = db()->prepare(
+        "SELECT p.*, s.student_no, s.full_name, s.year_level, s.section
+         FROM tbl_predictions p
+         JOIN tbl_students s ON s.id = p.student_id
+         WHERE (s.advisor_id = ? OR s.professor_id = ?) {$periodCond}
+         ORDER BY p.created_at DESC"
+    );
+    $stmt->bind_param('ii', $advisorId, $advisorId);
+    $stmt->execute();
+    return $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+}
+
+function get_scoped_period_summary_stats(int $advisorId): array
+{
+    $stmt = db()->prepare(
+        "SELECT
+            COALESCE(p.grading_period, 'Unspecified') as period,
+            COUNT(*) as total,
+            SUM(CASE WHEN p.predicted_status = 'Pass' THEN 1 ELSE 0 END) as pass_count,
+            SUM(CASE WHEN p.predicted_status = 'At-Risk' THEN 1 ELSE 0 END) as risk_count,
+            SUM(CASE WHEN p.predicted_status = 'Fail' THEN 1 ELSE 0 END) as fail_count,
+            AVG(p.predicted_grade) as avg_grade
+         FROM tbl_predictions p
+         JOIN tbl_students s ON s.id = p.student_id
+         WHERE (s.advisor_id = ? OR s.professor_id = ?)
+         GROUP BY p.grading_period"
+    );
+    $stmt->bind_param('ii', $advisorId, $advisorId);
+    $stmt->execute();
+    return $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+}
+
+function get_scoped_department_summary(int $advisorId): array
+{
+    $stmt = db()->prepare(
+        "SELECT s.year_level,
+            COUNT(*) as total_students,
+            SUM(CASE WHEN p.predicted_status = 'Pass' THEN 1 ELSE 0 END) as pass_count,
+            SUM(CASE WHEN p.predicted_status = 'At-Risk' THEN 1 ELSE 0 END) as risk_count,
+            SUM(CASE WHEN p.predicted_status = 'Fail' THEN 1 ELSE 0 END) as fail_count
+         FROM tbl_students s
+         LEFT JOIN (
+             SELECT student_id, predicted_status FROM tbl_predictions p1
+             WHERE id = (SELECT MAX(id) FROM tbl_predictions p2 WHERE p2.student_id = p1.student_id)
+         ) p ON p.student_id = s.id
+         WHERE (s.advisor_id = ? OR s.professor_id = ?)
+         GROUP BY s.year_level
+         ORDER BY s.year_level"
+    );
+    $stmt->bind_param('ii', $advisorId, $advisorId);
+    $stmt->execute();
+    return $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+}
+
+
+// Determine current user role for scoping
+$_rpt_user      = current_user();
+$_rpt_isAdvisor = ($_rpt_user['role'] === 'Advisor');
+$_rpt_advisorId = (int)$_rpt_user['id'];
+
 if (isset($_GET['export']) && $_GET['export'] === 'csv') {
-    $rows = db()->query("SELECT s.student_no, s.full_name, p.predicted_status, p.confidence, p.created_at FROM tbl_predictions p JOIN tbl_students s ON s.id = p.student_id ORDER BY p.created_at DESC")->fetch_all(MYSQLI_ASSOC);
+    if ($_rpt_isAdvisor) {
+        $expStmt = db()->prepare(
+            "SELECT s.student_no, s.full_name,
+                    COALESCE(p.grading_period, 'Legacy/Overall') as period,
+                    p.predicted_status,
+                    COALESCE(p.predicted_grade, 'N/A') as predicted_grade,
+                    p.confidence, p.created_at
+             FROM tbl_predictions p
+             JOIN tbl_students s ON s.id = p.student_id
+             WHERE (s.advisor_id = ? OR s.professor_id = ?)
+             ORDER BY p.created_at DESC"
+        );
+        $expStmt->bind_param('ii', $_rpt_advisorId, $_rpt_advisorId);
+        $expStmt->execute();
+        $rows = $expStmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    } else {
+        $rows = db()->query("SELECT s.student_no, s.full_name, COALESCE(p.grading_period, 'Legacy/Overall') as period, p.predicted_status, COALESCE(p.predicted_grade, 'N/A') as predicted_grade, p.confidence, p.created_at FROM tbl_predictions p JOIN tbl_students s ON s.id = p.student_id ORDER BY p.created_at DESC")->fetch_all(MYSQLI_ASSOC);
+    }
     header('Content-Type: text/csv');
     header('Content-Disposition: attachment; filename=academic-report.csv');
     $out = fopen('php://output', 'w');
-    fputcsv($out, ['Student No', 'Name', 'Status', 'Confidence', 'Date']);
+    fputcsv($out, ['Student No', 'Name', 'Grading Period', 'Status', 'Predicted Grade', 'Confidence', 'Date']);
     foreach ($rows as $r) fputcsv($out, $r);
     fclose($out);
     exit;
@@ -98,6 +240,7 @@ page_header('Advanced Reports');
     <?php 
     $tabs = [
         'overview' => 'Overview',
+        'progressive' => 'Predictions by Period',
         'at_risk' => 'At-Risk Students',
         'performance' => 'Performance Analysis',
         'model' => 'ML Model Metrics',
@@ -114,7 +257,7 @@ page_header('Advanced Reports');
 <?php if ($tab === 'overview'): ?>
     <div class="metrics-grid">
         <?php 
-        $perf = get_performance_summary(); 
+        $perf = $_rpt_isAdvisor ? get_scoped_performance_summary($_rpt_advisorId) : get_performance_summary(); 
         $total_preds = array_sum(array_column($perf, 'total'));
         foreach ($perf as $row): 
             $perc = round(($row['total'] / max(1, $total_preds)) * 100);
@@ -164,6 +307,80 @@ page_header('Advanced Reports');
         </article>
     </div>
 
+<?php elseif ($tab === 'progressive'): ?>
+    <?php
+    $selectedPeriod = $_GET['period'] ?? '';
+    $periodStats = $_rpt_isAdvisor ? get_scoped_period_summary_stats($_rpt_advisorId) : get_period_summary_stats();
+    $predictions = $_rpt_isAdvisor ? get_scoped_progressive_report($_rpt_advisorId, $selectedPeriod ?: null) : get_progressive_report($selectedPeriod ?: null);
+    ?>
+    <div class="metrics-grid" style="margin-bottom: 24px;">
+        <?php foreach ($periodStats as $ps): ?>
+            <article class="metric">
+                <span><?= h($ps['period']) ?></span>
+                <strong><?= $ps['total'] ?> preds</strong>
+                <small>Pass: <?= $ps['pass_count'] ?> | Risk: <?= $ps['risk_count'] ?> | Fail: <?= $ps['fail_count'] ?></small>
+                <?php if ($ps['avg_grade']): ?>
+                    <small style="margin-top: 4px; color: var(--blue);">Avg Grade: <?= round($ps['avg_grade'], 1) ?>%</small>
+                <?php endif; ?>
+            </article>
+        <?php endforeach; ?>
+    </div>
+
+    <div class="panel">
+        <div class="panel-title">
+            <h2>Progressive Predictions by Period</h2>
+            <form method="get" style="display: flex; gap: 8px; align-items: center;">
+                <input type="hidden" name="tab" value="progressive">
+                <label style="font-size: 0.85rem; font-weight: 600;">Filter Period:</label>
+                <select name="period" onchange="this.form.submit()" style="padding: 4px 8px; border-radius: 4px; border: 1px solid var(--line);">
+                    <option value="">All Periods</option>
+                    <?php foreach (['Prelim', 'Midterm', 'Semi-Final', 'Final'] as $p): ?>
+                        <option value="<?= $p ?>" <?= $selectedPeriod === $p ? 'selected' : '' ?>><?= $p ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </form>
+        </div>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Student</th>
+                        <th>Period</th>
+                        <th>Status</th>
+                        <th>Predicted Grade</th>
+                        <th>Confidence</th>
+                        <th>Risk Factors</th>
+                        <th>Recommendation</th>
+                        <th>Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if (empty($predictions)): ?>
+                        <tr><td colspan="8" class="empty">No predictions recorded yet for this filter.</td></tr>
+                    <?php else: ?>
+                        <?php foreach ($predictions as $row): ?>
+                            <tr>
+                                <td><strong><?= h($row['full_name']) ?></strong><br><small><?= h($row['student_no']) ?></small></td>
+                                <td><span class="pill pill-period-<?= strtolower(str_replace('-', '', $row['grading_period'] ?? 'default')) ?>"><?= h($row['grading_period'] ?? 'All') ?></span></td>
+                                <td><span class="status <?= h(status_class($row['predicted_status'])) ?>"><?= h($row['predicted_status']) ?></span></td>
+                                <td><strong><?= $row['predicted_grade'] ? round($row['predicted_grade'], 1) . '%' : 'Ã¢â‚¬â€' ?></strong></td>
+                                <td><?= round($row['confidence'] * 100, 1) ?>%</td>
+                                <td>
+                                    <?php $factors = json_decode($row['risk_factors'] ?: '[]', true); ?>
+                                    <div class="chip-list compact">
+                                        <?php foreach ((array)$factors as $f): ?><span class="chip"><?= h($f) ?></span><?php endforeach; ?>
+                                    </div>
+                                </td>
+                                <td><em style="font-size: 0.85rem;"><?= h($row['recommendation']) ?></em></td>
+                                <td><small><?= date('M d, Y', strtotime($row['created_at'])) ?></small></td>
+                            </tr>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
 <?php elseif ($tab === 'at_risk'): ?>
     <div class="panel">
         <div class="panel-title">
@@ -176,17 +393,21 @@ page_header('Advanced Reports');
                     <tr>
                         <th>Student</th>
                         <th>Year/Section</th>
+                        <th>Period</th>
                         <th>Status</th>
+                        <th>Predicted Grade</th>
                         <th>Risk Factors</th>
                         <th>Recommendation (Intervention)</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <?php foreach (get_at_risk_list() as $row): ?>
+                    <?php foreach ($_rpt_isAdvisor ? get_scoped_at_risk_list($_rpt_advisorId) : get_at_risk_list() as $row): ?>
                         <tr>
                             <td><strong><?= h($row['full_name']) ?></strong><br><small><?= h($row['student_no']) ?></small></td>
                             <td><?= h($row['year_level']) ?> / <?= h($row['section']) ?></td>
+                            <td><span class="pill pill-period-<?= strtolower(str_replace('-', '', $row['grading_period'] ?? 'default')) ?>"><?= h($row['grading_period'] ?? 'Overall') ?></span></td>
                             <td><span class="status <?= h(status_class($row['predicted_status'])) ?>"><?= h($row['predicted_status']) ?></span></td>
+                            <td><strong><?= $row['predicted_grade'] ? round($row['predicted_grade'], 1) . '%' : 'Ã¢â‚¬â€' ?></strong></td>
                             <td>
                                 <?php $factors = json_decode($row['risk_factors'] ?: '[]', true); ?>
                                 <div class="chip-list compact">
@@ -315,7 +536,7 @@ page_header('Advanced Reports');
                     </tr>
                 </thead>
                 <tbody>
-                    <?php foreach (get_department_summary() as $row): ?>
+                    <?php foreach ($_rpt_isAdvisor ? get_scoped_department_summary($_rpt_advisorId) : get_department_summary() as $row): ?>
                         <tr>
                             <td><strong><?= h($row['year_level']) ?></strong></td>
                             <td><?= $row['total_students'] ?></td>

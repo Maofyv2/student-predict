@@ -1,5 +1,5 @@
 {
-  "algorithm": "XGBoost Classification",
+  "algorithm": "XGBoost Classification (Progressive Stages)",
   "feature_columns": [
     "prelim_grade",
     "midterm_grade",
@@ -21,48 +21,297 @@
   ],
   "training_rows": 1500,
   "test_rows": 375,
-  "accuracy": 1.0,
-  "weighted_f1": 1.0,
-  "classification_report": {
-    "At-Risk": {
-      "precision": 1.0,
-      "recall": 1.0,
-      "f1-score": 1.0,
-      "support": 125.0
+  "accuracy": 0.9973,
+  "weighted_f1": 0.9973,
+  "stage_models": {
+    "Prelim": {
+      "period": "Prelim",
+      "feature_columns": [
+        "computed_grade",
+        "attendance_rate",
+        "lab_score",
+        "internet_access",
+        "digital_literacy",
+        "household_income",
+        "parental_education",
+        "study_hours",
+        "working_student"
+      ],
+      "classes": [
+        "At-Risk",
+        "Fail",
+        "Pass"
+      ],
+      "training_rows": 1500,
+      "test_rows": 375,
+      "accuracy": 0.976,
+      "weighted_f1": 0.9759,
+      "classification_report": {
+        "At-Risk": {
+          "precision": 0.967741935483871,
+          "recall": 0.96,
+          "f1-score": 0.963855421686747,
+          "support": 125.0
+        },
+        "Fail": {
+          "precision": 1.0,
+          "recall": 0.9310344827586207,
+          "f1-score": 0.9642857142857143,
+          "support": 29.0
+        },
+        "Pass": {
+          "precision": 0.9776785714285714,
+          "recall": 0.9909502262443439,
+          "f1-score": 0.9842696629213483,
+          "support": 221.0
+        },
+        "accuracy": 0.976,
+        "macro avg": {
+          "precision": 0.9818068356374807,
+          "recall": 0.9606615696676548,
+          "f1-score": 0.9708035996312699,
+          "support": 375.0
+        },
+        "weighted avg": {
+          "precision": 0.9760925499231949,
+          "recall": 0.976,
+          "f1-score": 0.9759194904819921,
+          "support": 375.0
+        }
+      },
+      "feature_importance": {
+        "computed_grade": 0.51932,
+        "attendance_rate": 0.35083,
+        "lab_score": 0.07991,
+        "digital_literacy": 0.01423,
+        "household_income": 0.01313,
+        "internet_access": 0.00741,
+        "study_hours": 0.00698,
+        "working_student": 0.00635,
+        "parental_education": 0.00182
+      }
     },
-    "Fail": {
-      "precision": 1.0,
-      "recall": 1.0,
-      "f1-score": 1.0,
-      "support": 29.0
+    "Midterm": {
+      "period": "Midterm",
+      "feature_columns": [
+        "prelim_grade",
+        "computed_grade",
+        "attendance_rate",
+        "lab_score",
+        "internet_access",
+        "digital_literacy",
+        "household_income",
+        "parental_education",
+        "study_hours",
+        "working_student"
+      ],
+      "classes": [
+        "At-Risk",
+        "Fail",
+        "Pass"
+      ],
+      "training_rows": 1500,
+      "test_rows": 375,
+      "accuracy": 0.9893,
+      "weighted_f1": 0.9893,
+      "classification_report": {
+        "At-Risk": {
+          "precision": 0.9763779527559056,
+          "recall": 0.992,
+          "f1-score": 0.9841269841269841,
+          "support": 125.0
+        },
+        "Fail": {
+          "precision": 1.0,
+          "recall": 0.9310344827586207,
+          "f1-score": 0.9642857142857143,
+          "support": 29.0
+        },
+        "Pass": {
+          "precision": 0.995475113122172,
+          "recall": 0.995475113122172,
+          "f1-score": 0.995475113122172,
+          "support": 221.0
+        },
+        "accuracy": 0.9893333333333333,
+        "macro avg": {
+          "precision": 0.9906176886260258,
+          "recall": 0.9728365319602642,
+          "f1-score": 0.9812959371782902,
+          "support": 375.0
+        },
+        "weighted avg": {
+          "precision": 0.9894593175853018,
+          "recall": 0.9893333333333333,
+          "f1-score": 0.9892804232804233,
+          "support": 375.0
+        }
+      },
+      "feature_importance": {
+        "computed_grade": 0.54101,
+        "attendance_rate": 0.21526,
+        "prelim_grade": 0.20667,
+        "lab_score": 0.02647,
+        "study_hours": 0.00375,
+        "digital_literacy": 0.00215,
+        "internet_access": 0.002,
+        "household_income": 0.00147,
+        "parental_education": 0.00068,
+        "working_student": 0.00054
+      }
     },
-    "Pass": {
-      "precision": 1.0,
-      "recall": 1.0,
-      "f1-score": 1.0,
-      "support": 221.0
+    "Semi-Final": {
+      "period": "Semi-Final",
+      "feature_columns": [
+        "prelim_grade",
+        "midterm_grade",
+        "computed_grade",
+        "attendance_rate",
+        "lab_score",
+        "internet_access",
+        "digital_literacy",
+        "household_income",
+        "parental_education",
+        "study_hours",
+        "working_student"
+      ],
+      "classes": [
+        "At-Risk",
+        "Fail",
+        "Pass"
+      ],
+      "training_rows": 1500,
+      "test_rows": 375,
+      "accuracy": 0.9973,
+      "weighted_f1": 0.9973,
+      "classification_report": {
+        "At-Risk": {
+          "precision": 0.9920634920634921,
+          "recall": 1.0,
+          "f1-score": 0.9960159362549801,
+          "support": 125.0
+        },
+        "Fail": {
+          "precision": 1.0,
+          "recall": 0.9655172413793104,
+          "f1-score": 0.9824561403508771,
+          "support": 29.0
+        },
+        "Pass": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 221.0
+        },
+        "accuracy": 0.9973333333333333,
+        "macro avg": {
+          "precision": 0.9973544973544973,
+          "recall": 0.9885057471264368,
+          "f1-score": 0.9928240255352857,
+          "support": 375.0
+        },
+        "weighted avg": {
+          "precision": 0.9973544973544973,
+          "recall": 0.9973333333333333,
+          "f1-score": 0.9973152536054611,
+          "support": 375.0
+        }
+      },
+      "feature_importance": {
+        "computed_grade": 0.48372,
+        "midterm_grade": 0.21244,
+        "attendance_rate": 0.18696,
+        "prelim_grade": 0.10738,
+        "lab_score": 0.00949,
+        "internet_access": 0.0,
+        "digital_literacy": 0.0,
+        "household_income": 0.0,
+        "parental_education": 0.0,
+        "study_hours": 0.0,
+        "working_student": 0.0
+      }
     },
-    "accuracy": 1.0,
-    "macro avg": {
-      "precision": 1.0,
-      "recall": 1.0,
-      "f1-score": 1.0,
-      "support": 375.0
-    },
-    "weighted avg": {
-      "precision": 1.0,
-      "recall": 1.0,
-      "f1-score": 1.0,
-      "support": 375.0
+    "Final": {
+      "period": "Final",
+      "feature_columns": [
+        "prelim_grade",
+        "midterm_grade",
+        "semi_final_grade",
+        "computed_grade",
+        "attendance_rate",
+        "lab_score",
+        "internet_access",
+        "digital_literacy",
+        "household_income",
+        "parental_education",
+        "study_hours",
+        "working_student"
+      ],
+      "classes": [
+        "At-Risk",
+        "Fail",
+        "Pass"
+      ],
+      "training_rows": 1500,
+      "test_rows": 375,
+      "accuracy": 0.9973,
+      "weighted_f1": 0.9973,
+      "classification_report": {
+        "At-Risk": {
+          "precision": 0.9920634920634921,
+          "recall": 1.0,
+          "f1-score": 0.9960159362549801,
+          "support": 125.0
+        },
+        "Fail": {
+          "precision": 1.0,
+          "recall": 0.9655172413793104,
+          "f1-score": 0.9824561403508771,
+          "support": 29.0
+        },
+        "Pass": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 221.0
+        },
+        "accuracy": 0.9973333333333333,
+        "macro avg": {
+          "precision": 0.9973544973544973,
+          "recall": 0.9885057471264368,
+          "f1-score": 0.9928240255352857,
+          "support": 375.0
+        },
+        "weighted avg": {
+          "precision": 0.9973544973544973,
+          "recall": 0.9973333333333333,
+          "f1-score": 0.9973152536054611,
+          "support": 375.0
+        }
+      },
+      "feature_importance": {
+        "semi_final_grade": 0.47806,
+        "attendance_rate": 0.17792,
+        "midterm_grade": 0.14193,
+        "computed_grade": 0.13352,
+        "prelim_grade": 0.06543,
+        "lab_score": 0.00313,
+        "internet_access": 0.0,
+        "digital_literacy": 0.0,
+        "household_income": 0.0,
+        "parental_education": 0.0,
+        "study_hours": 0.0,
+        "working_student": 0.0
+      }
     }
   },
   "feature_importance": {
-    "semi_final_grade": 0.57159,
-    "attendance_rate": 0.17854,
-    "final_grade": 0.15015,
-    "prelim_grade": 0.07235,
-    "midterm_grade": 0.02386,
-    "lab_score": 0.00351,
+    "semi_final_grade": 0.47806,
+    "attendance_rate": 0.17792,
+    "midterm_grade": 0.14193,
+    "computed_grade": 0.13352,
+    "prelim_grade": 0.06543,
+    "lab_score": 0.00313,
     "internet_access": 0.0,
     "digital_literacy": 0.0,
     "household_income": 0.0,
