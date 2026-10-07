@@ -10,11 +10,12 @@ if ($user['role'] !== 'Admin' && $user['role'] !== 'Advisor') {
 
 $error = '';
 $success = '';
+$fixedDepartment = 'Information Technology Department';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['add_professor']) && $user['role'] === 'Admin') {
         $full_name = trim($_POST['full_name'] ?? '');
-        $department = trim($_POST['department'] ?? '');
+        $department = $fixedDepartment;
         $email = trim($_POST['email'] ?? '');
         $username = trim($_POST['username'] ?? '');
         $password = trim($_POST['password'] ?? '');
@@ -32,7 +33,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif (isset($_POST['edit_professor'])) {
         $professor_id = (int)($_POST['professor_id'] ?? 0);
         $full_name = trim($_POST['full_name'] ?? '');
-        $department = trim($_POST['department'] ?? '');
+        $department = $fixedDepartment;
         $email = trim($_POST['email'] ?? '');
         $username = trim($_POST['username'] ?? '');
         $new_password = trim($_POST['new_password'] ?? '');
@@ -172,7 +173,7 @@ page_header('Faculty Management');
                 </div>
                 <div style="margin-bottom: 1rem;">
                     <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Department</label>
-                    <input type="text" name="department" class="form-control" style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px;" required placeholder="Information Technology">
+                    <input type="text" class="form-control" value="Information Technology Department" readonly aria-readonly="true" style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; background: #f8fafc; color: #475569; cursor: not-allowed;">
                 </div>
                 <div style="margin-bottom: 1rem;">
                     <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Email Address</label>
@@ -274,7 +275,7 @@ page_header('Faculty Management');
 
             <div style="margin-bottom: 12px;">
                 <label style="display: block; margin-bottom: 4px; font-weight: 600; font-size: 13px;">Department</label>
-                <input type="text" name="department" id="editProfDept" required style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px;">
+                <input type="text" id="editProfDept" value="Information Technology Department" readonly aria-readonly="true" style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; background: #f8fafc; color: #475569; cursor: not-allowed;">
             </div>
 
             <div style="margin-bottom: 12px;">
@@ -312,7 +313,7 @@ page_header('Faculty Management');
 function openEditProfModal(id, name, dept, email, username) {
     document.getElementById('editProfId').value = id;
     document.getElementById('editProfName').value = name;
-    document.getElementById('editProfDept').value = dept;
+    document.getElementById('editProfDept').value = 'Information Technology Department';
     document.getElementById('editProfEmail').value = email;
     document.getElementById('editProfUsername').value = username;
     document.getElementById('editProfPassword').value = '';
