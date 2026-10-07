@@ -60,6 +60,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Add Student - Prediction System</title>
+    <link rel="icon" type="image/png" href="au.png">
+    <link rel="shortcut icon" type="image/png" href="au.png">
+    <link rel="apple-touch-icon" href="au.png">
     <style>
         * {
             box-sizing: border-box;

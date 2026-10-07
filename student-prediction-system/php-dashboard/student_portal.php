@@ -1,7 +1,6 @@
 <?php
 require_once __DIR__ . '/bootstrap.php';
 
-// 1. Authentication Check
 if (!isset($_SESSION['student'])) {
     redirect_to('student_login.php');
 }
@@ -11,9 +10,7 @@ $student_id = (int) $student['id'];
 $success_message = "";
 $error_message = "";
 
-// 2. Data Handlers & Processing
 
-// --- SUBMISSION FILE HANDLER ---
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['upload_answer'])) {
     $activity_id = (int) ($_POST['activity_id'] ?? 0);
     $submission_text = trim($_POST['submission_text'] ?? '');
@@ -61,7 +58,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['upload_answer'])) {
     }
 }
 
-// --- SURVEY HANDLER ---
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_survey'])) {
     $selected_advisor_id = (int) ($_POST['advisor_id'] ?? 0);
     $internet           = (int) ($_POST['internet_access'] ?? 0);
@@ -71,7 +67,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_survey'])) {
     $parentEdu          = (int) ($_POST['parental_education'] ?? 1);
     $working            = (int) ($_POST['working_student'] ?? 0);
 
-    // Fetch current survey record
     $stmt = db()->prepare("SELECT id FROM tbl_surveys WHERE student_id = ? ORDER BY created_at DESC LIMIT 1");
     $stmt->bind_param('i', $student_id);
     $stmt->execute();
@@ -151,7 +146,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_survey'])) {
     }
 }
 
-// 3. Fetch Data for Display
 $stmt = db()->prepare("SELECT * FROM tbl_predictions WHERE student_id = ? ORDER BY created_at DESC LIMIT 1");
 $stmt->bind_param('i', $student_id);
 $stmt->execute();
@@ -556,7 +550,6 @@ page_header('Student Portal');
         <span>Personalized tips and assigned tasks from your instructor</span>
     </div>
     
-    <!-- ASSIGNED ACTIVITIES SECTION -->
     <?php if (!empty($assigned_activities)): ?>
         <div style="margin-bottom: 2rem;">
             <h3 style="font-size: 1.1rem; border-bottom: 2px solid #0d6efd; padding-bottom: 0.5rem; margin-bottom: 1rem; color: #0d6efd;">
@@ -585,7 +578,6 @@ page_header('Student Portal');
                             </div>
                         <?php endif; ?>
 
-                        <!-- DISPLAY GRADE & ADVISOR FEEDBACK IF AVAILABLE -->
                         <?php if (isset($act['grade']) && $act['grade'] !== null && $act['grade'] !== ''): ?>
                             <div style="margin-top: 1rem; padding: 0.85rem; background-color: #e8f5e9; border: 1px solid #c8e6c9; border-radius: 6px;">
                                 <div style="font-weight: bold; color: #2e7d32; font-size: 1rem;">
@@ -599,7 +591,6 @@ page_header('Student Portal');
                             </div>
                         <?php endif; ?>
 
-                        <!-- FILE ACTION AND SUBMISSION AREA -->
                         <div style="margin-top: 1rem; padding-top: 0.75rem; border-top: 1px dashed #ccc;">
                             <?php if (!empty($act['file_path'])): ?>
                                 <div style="margin-bottom: 0.75rem;">
@@ -609,7 +600,6 @@ page_header('Student Portal');
                                 </div>
                             <?php endif; ?>
 
-                            <!-- SUBMIT FORM WITH TEXT & FILE INPUT -->
                             <form method="post" action="" enctype="multipart/form-data" style="display: flex; flex-direction: column; gap: 0.75rem; background: #fff; padding: 1rem; border-radius: 6px; border: 1px solid #ddd;">
                                 <input type="hidden" name="activity_id" value="<?= $act['id'] ?>">
                                 
@@ -651,7 +641,6 @@ page_header('Student Portal');
         </div>
     <?php endif; ?>
 
-    <!-- GENERAL ADVICE HISTORY -->
     <?php if (empty($advice_history) && empty($assigned_activities)): ?>
         <p class="muted">No direct guidance or activity has been posted by your advisor yet.</p>
     <?php else: ?>

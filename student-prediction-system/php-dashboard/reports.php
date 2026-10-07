@@ -228,6 +228,14 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
 page_header('Advanced Reports');
 ?>
 
+<style>
+    .page {
+        width: calc(100% - 48px) !important;
+        max-width: 100% !important;
+        margin: 24px auto 48px !important;
+    }
+</style>
+
 <section class="page-heading">
     <div>
         <p class="eyebrow">Data Analytics</p>

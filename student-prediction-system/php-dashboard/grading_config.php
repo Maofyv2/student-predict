@@ -1,10 +1,4 @@
 <?php
-/**
- * Dynamic Grading Criteria Configuration
- * - Advisor: can set custom components, percentage weights, and max scores.
- * - Admin:   view-only (cannot modify or save).
- * Total weight per period must equal exactly 100%.
- */
 require_once __DIR__ . '/bootstrap.php';
 require_login();
 
@@ -21,7 +15,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_weights'])) {
         $conn = db();
         $submittedCriteria = $_POST['criteria'] ?? [];
 
-        // Validate each period
         $parsedPerPeriod = [];
         foreach ($periods as $period) {
             $rows = $submittedCriteria[$period] ?? [];
@@ -79,12 +72,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_weights'])) {
             try {
                 $createdBy = (int)$user['id'];
                 foreach ($parsedPerPeriod as $period => $items) {
-                    // Remove existing weights for this period
                     $delStmt = $conn->prepare('DELETE FROM tbl_grading_weights WHERE period = ?');
                     $delStmt->bind_param('s', $period);
                     $delStmt->execute();
 
-                    // Insert updated dynamic weights
                     $insStmt = $conn->prepare(
                         'INSERT INTO tbl_grading_weights (period, component, weight, max_score, created_by)
                          VALUES (?, ?, ?, ?, ?)'
@@ -139,27 +130,6 @@ page_header('Grading Criteria');
 </div>
 <?php endif; ?>
 
-<div class="panel" style="margin-bottom:20px;">
-    <div class="panel-title"><h2>Formula &amp; Rules</h2></div>
-    <p style="margin:0;font-size:.9rem;color:var(--muted);line-height:1.6;">
-        Grading criteria are fully dynamic per grading period. Advisors can set the <strong>percentage weight</strong> and <strong>maximum score</strong> for each component (e.g. Exam 40%, Quiz 20%, Assignment 15%, Project 15%, Attendance 10%).
-        <br>
-        <strong>Normalized Formula:</strong> <code>Contribution = (Raw Score / Max Score) * Weight %</code>
-        <br>
-        <strong>Period Total:</strong> The sum of all component weights in each period must equal exactly <strong>100%</strong>.
-    </p>
-
-    <?php if ($isAdvisor): ?>
-    <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;">
-        <button type="button" class="button button-secondary" onclick="applyPresetStandard()">
-            Apply Standard Preset (Exam 40%, Quiz 20%, Assignment 15%, Project 15%, Attendance 10%)
-        </button>
-        <button type="button" class="button button-outline" onclick="copyPrelimToAll()">
-            Copy Prelim Criteria to All Periods
-        </button>
-    </div>
-    <?php endif; ?>
-</div>
 
 <form method="post" id="weights-form">
     <input type="hidden" name="save_weights" value="1">
@@ -377,7 +347,6 @@ function removeCriterionRow(btn, periodKey) {
     }
 }
 
-// Preset: Exam 40%, Quiz 20%, Assignment 15%, Project 15%, Attendance 10%
 function applyPresetStandard() {
     if (!confirm('Apply the 5-component standard preset (Exam 40%, Quiz 20%, Assignment 15%, Project 15%, Attendance 10%) to all grading periods?')) {
         return;

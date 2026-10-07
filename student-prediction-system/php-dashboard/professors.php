@@ -96,6 +96,26 @@ page_header('Faculty Management');
 ?>
 
 <style>
+    .page {
+        width: calc(100% - 48px) !important;
+        max-width: 100% !important;
+        margin: 24px auto 48px !important;
+    }
+
+    .professors-layout {
+        display: grid;
+        grid-template-columns: 380px minmax(0, 1fr);
+        gap: 24px;
+        align-items: flex-start;
+        width: 100%;
+    }
+
+    @media (max-width: 1080px) {
+        .professors-layout {
+            grid-template-columns: 1fr;
+        }
+    }
+
     .edit-modal {
         display: none;
         position: fixed;
@@ -139,7 +159,7 @@ page_header('Faculty Management');
     </div>
 <?php endif; ?>
 
-<section class="<?= $user['role'] === 'Admin' ? 'layout-two' : '' ?>" style="align-items: flex-start; gap: 2rem;">
+<section class="<?= $user['role'] === 'Admin' ? 'professors-layout' : '' ?>">
     <?php if ($user['role'] === 'Admin'): ?>
         <article class="panel">
             <div class="panel-title">

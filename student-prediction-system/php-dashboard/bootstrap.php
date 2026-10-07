@@ -748,6 +748,9 @@ function page_header($title) {
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <title><?= h($title) ?> | Arellano BSIT Prediction System</title>
+        <link rel="icon" type="image/png" href="au.png">
+        <link rel="shortcut icon" type="image/png" href="au.png">
+        <link rel="apple-touch-icon" href="au.png">
         <link rel="stylesheet" href="assets.css?v=<?= filemtime(__DIR__ . '/assets.css') ?>">
     </head>
     <body>

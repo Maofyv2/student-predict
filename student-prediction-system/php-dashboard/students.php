@@ -7,9 +7,8 @@ $user = $current_user;
 $isAdvisor = ($user['role'] === 'Advisor');
 $advisorId = (int)$user['id'];
 
-// --- Reset Password Handler ---
 if (isset($_POST['reset_password'])) {
-    if ($user['role'] !== 'Admin' && $user['role'] !== 'Advisor') {
+    if (!$current_user || ($current_user['role'] !== 'Admin' && $current_user['role'] !== 'Advisor')) {
         redirect_to('students.php');
     }
 
@@ -17,7 +16,6 @@ if (isset($_POST['reset_password'])) {
     $new_password = $_POST['new_password'] ?? '';
 
     if ($student_id > 0 && !empty($new_password)) {
-        // Enforce ownership if Advisor
         if ($isAdvisor) {
             $chk = db()->prepare("SELECT id FROM tbl_students WHERE id = ? AND (advisor_id = ? OR professor_id = ?)");
             $chk->bind_param('iii', $student_id, $advisorId, $advisorId);
@@ -35,7 +33,6 @@ if (isset($_POST['reset_password'])) {
     redirect_to('students.php?msg=pwd_updated');
 }
 
-// --- Assign Advisor Handler (Admin Only) ---
 if (isset($_POST['assign_advisor']) && $user['role'] === 'Admin') {
     $student_id = (int)$_POST['student_id'];
     $assigned_advisor_id = (int)$_POST['advisor_id'];
@@ -45,7 +42,6 @@ if (isset($_POST['assign_advisor']) && $user['role'] === 'Admin') {
     redirect_to('students.php?msg=assigned');
 }
 
-// --- Delete Student Handler (Admin Only) ---
 if (isset($_POST['delete_student']) && $user['role'] === 'Admin') {
     $student_id = (int)$_POST['student_id'];
     if ($student_id > 0) {
@@ -56,7 +52,6 @@ if (isset($_POST['delete_student']) && $user['role'] === 'Admin') {
     redirect_to('students.php?msg=deleted');
 }
 
-// --- Fetch Students with Search and Permission Scoping ---
 $q = trim($_GET['q'] ?? '');
 
 $sql = "SELECT s.*,
@@ -74,7 +69,6 @@ $conditions = [];
 $params = [];
 $types = '';
 
-// Ownership: Professors can ONLY view and search their own students
 if ($isAdvisor) {
     $conditions[] = "(s.advisor_id = ? OR s.professor_id = ?)";
     $params[] = $advisorId;
@@ -82,7 +76,6 @@ if ($isAdvisor) {
     $types .= 'ii';
 }
 
-// Search by Student Name OR Student ID (partial match)
 if ($q !== '') {
     $conditions[] = "(s.full_name LIKE ? OR s.student_no LIKE ?)";
     $like = '%' . $q . '%';
@@ -266,7 +259,6 @@ page_header('Students');
     </div>
 </section>
 
-<!-- Reset Password Modal with Eye Icon -->
 <div id="resetModal" class="reset-modal">
     <div class="reset-modal-card">
         <h3 style="margin: 0 0 6px 0; color: #1e293b; font-size: 20px;">Reset Student Password</h3>
