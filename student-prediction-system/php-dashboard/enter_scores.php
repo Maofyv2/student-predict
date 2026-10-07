@@ -1001,6 +1001,10 @@ function buildScoreRows() {
 
         // Default raw score is 0 if not previously recorded
         const existing = DB_SCORES[dbColKey] ?? DB_SCORES[comp] ?? DB_SCORES[fk + '_score'] ?? 0;
+        const initialScore = Number(existing);
+        const safeExisting = Number.isFinite(initialScore)
+            ? Math.min(ms, Math.max(0, initialScore))
+            : 0;
 
         const tr = document.createElement('tr');
         tr.innerHTML = `
@@ -1012,11 +1016,23 @@ function buildScoreRows() {
                        class="input-narrow"
                        name="score_${fk}"
                        id="score_${fk}"
-                       value="${existing}">
+                       value="${safeExisting}"
+                       inputmode="decimal"
+                       oninput="enforceScoreLimit(this)">
             </td>
         `;
         tbody.appendChild(tr);
     });
+}
+
+function enforceScoreLimit(input) {
+    const max = Number(input.max);
+    const value = Number(input.value);
+    if (input.value !== '' && Number.isFinite(value) && value > max) {
+        input.value = String(max);
+    } else if (input.value !== '' && Number.isFinite(value) && value < 0) {
+        input.value = '0';
+    }
 }
 
 function buildPrevGrades() {

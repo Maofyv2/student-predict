@@ -9,7 +9,8 @@ $advisorId = (int)$user['id'];
 
 // --- Reset Password Handler ---
 if (isset($_POST['reset_password'])) {
-    if ($user['role'] !== 'Admin' && $user['role'] !== 'Advisor') {
+    // Only administrators may reset student passwords.
+    if ($user['role'] !== 'Admin') {
         redirect_to('students.php');
     }
 
@@ -325,10 +326,12 @@ page_header('Students');
                                     </a>
                                 <?php endif; ?>
 
-                                <button type="button" class="button button-secondary" style="padding: 5px 10px; font-size: 12px;"
-                                    onclick="openResetModal(<?= $student['id'] ?>, '<?= h(addslashes($student['full_name'])) ?>', '<?= h(addslashes($student['student_no'])) ?>')">
-                                    Reset Password
-                                </button>
+                                <?php if ($user['role'] === 'Admin'): ?>
+                                    <button type="button" class="button button-secondary" style="padding: 5px 10px; font-size: 12px;"
+                                        onclick="openResetModal(<?= $student['id'] ?>, '<?= h(addslashes($student['full_name'])) ?>', '<?= h(addslashes($student['student_no'])) ?>')">
+                                        Reset Password
+                                    </button>
+                                <?php endif; ?>
 
                                 <?php if ($user['role'] === 'Admin'): ?>
                                     <form method="POST" action="students.php" onsubmit="return confirm('Are you sure you want to delete this student record?');" style="margin: 0; display: inline;">

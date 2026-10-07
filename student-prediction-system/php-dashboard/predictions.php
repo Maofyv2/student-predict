@@ -348,6 +348,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $result['missing']      = $missingList;
                 $result['grading_period'] = $gradingPeriod;
                 $result['student_id']   = $studentId;
+                $result['student_no']  = $studentNo;
                 $result['academic_year']= $academicYear;
                 $result['semester']     = $semester;
 

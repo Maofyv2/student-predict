@@ -10,6 +10,26 @@ $student_id = (int) $student['id'];
 $success_message = "";
 $error_message = "";
 
+$stmtAssignedAdvisor = db()->prepare(
+    "SELECT u.id, u.full_name
+     FROM tbl_students s
+     LEFT JOIN users u ON u.id = s.advisor_id AND u.role = 'Advisor' AND u.is_active = 1
+     WHERE s.id = ? LIMIT 1"
+);
+$stmtAssignedAdvisor->bind_param('i', $student_id);
+$stmtAssignedAdvisor->execute();
+$assignedAdvisor = $stmtAssignedAdvisor->get_result()->fetch_assoc() ?: [];
+$stmtAssignedAdvisor->close();
+$current_advisor_id = (int)($assignedAdvisor['id'] ?? 0);
+$current_advisor_name = (string)($assignedAdvisor['full_name'] ?? '');
+
+function student_portal_grade_status(float $grade): string
+{
+    if ($grade >= 75) return 'Pass';
+    if ($grade >= 70) return 'At-Risk';
+    return 'Fail';
+}
+
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['upload_answer'])) {
     $activity_id = (int) ($_POST['activity_id'] ?? 0);
@@ -59,7 +79,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['upload_answer'])) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_survey'])) {
-    $selected_advisor_id = (int) ($_POST['advisor_id'] ?? 0);
     $internet           = (int) ($_POST['internet_access'] ?? 0);
     $literacy           = (int) ($_POST['digital_literacy'] ?? 1);
     $hours              = (float) ($_POST['study_hours'] ?? 0);
@@ -95,11 +114,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_survey'])) {
         // Also update tbl_students profile with these socio-demographic features and advisor
         $stmtStuUp = db()->prepare(
             "UPDATE tbl_students 
-             SET household_income = ?, parental_education = ?, working_student = ?, advisor_id = ?, professor_id = ? 
+             SET household_income = ?, parental_education = ?, working_student = ? 
              WHERE id = ?"
         );
-        $advVal = $selected_advisor_id > 0 ? $selected_advisor_id : null;
-        $stmtStuUp->bind_param('diiiii', $income, $parentEdu, $working, $advVal, $advVal, $student_id);
+        $stmtStuUp->bind_param('diii', $income, $parentEdu, $working, $student_id);
         $stmtStuUp->execute();
         $stmtStuUp->close();
 
@@ -114,17 +132,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_survey'])) {
         }
         $refStmt->close();
 
-        if ($selected_advisor_id > 0) {
-            $stmtAdvName = db()->prepare("SELECT full_name FROM users WHERE id = ? LIMIT 1");
-            $stmtAdvName->bind_param('i', $selected_advisor_id);
-            $stmtAdvName->execute();
-            $advRes = $stmtAdvName->get_result()->fetch_assoc();
-            $stmtAdvName->close();
-
-            if ($advRes) {
-                $profName = $advRes['full_name'];
-            }
-
+        if ($current_advisor_id > 0) {
+            $profName = $current_advisor_name;
             $studentName = $student['full_name'];
             $alertMsg = "Student {$studentName} updated their self-assessment profile (Study Hours: {$hours}h/wk, Digital Literacy: {$literacy}/5). Please review.";
             $alert_type = 'Student Update';
@@ -135,7 +144,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_survey'])) {
                 "INSERT INTO tbl_alerts (student_id, user_id, alert_type, severity, message, is_read, created_at) 
                  VALUES (?, ?, ?, ?, ?, ?, NOW())"
             );
-            $stmtAlert->bind_param('iisssi', $student_id, $selected_advisor_id, $alert_type, $severity, $alertMsg, $is_read);
+            $stmtAlert->bind_param('iisssi', $student_id, $current_advisor_id, $alert_type, $severity, $alertMsg, $is_read);
             $stmtAlert->execute();
             $stmtAlert->close();
         }
@@ -171,14 +180,21 @@ $stmt->execute();
 $survey = $stmt->get_result()->fetch_assoc();
 $stmt->close();
 
-$advisors_list = db()->query("SELECT id, full_name FROM users WHERE role = 'Advisor' AND is_active = 1 ORDER BY full_name ASC")->fetch_all(MYSQLI_ASSOC);
-
-$stmtAdv = db()->prepare("SELECT advisor_id FROM tbl_students WHERE id = ? LIMIT 1");
-$stmtAdv->bind_param('i', $student_id);
-$stmtAdv->execute();
-$studentCurrent = $stmtAdv->get_result()->fetch_assoc();
-$current_advisor_id = $studentCurrent['advisor_id'] ?? 0;
-$stmtAdv->close();
+$activityColumns = [
+    'original_file_name' => 'VARCHAR(255) DEFAULT NULL AFTER file_path',
+    'academic_year' => 'VARCHAR(20) DEFAULT NULL',
+    'semester' => 'VARCHAR(30) DEFAULT NULL',
+    'grading_period' => "ENUM('Prelim','Midterm','Semi-Final','Final') DEFAULT NULL",
+    'criterion_component' => 'VARCHAR(60) DEFAULT NULL',
+    'criterion_max_score' => 'DECIMAL(6,2) DEFAULT NULL',
+    'raw_score' => 'DECIMAL(6,2) DEFAULT NULL',
+];
+foreach ($activityColumns as $column => $definition) {
+    $columnCheck = db()->query("SHOW COLUMNS FROM tbl_student_activities LIKE '{$column}'");
+    if ($columnCheck && $columnCheck->num_rows === 0) {
+        db()->query("ALTER TABLE tbl_student_activities ADD COLUMN {$column} {$definition}");
+    }
+}
 
 $stmtAct = db()->prepare("SELECT a.*, u.full_name AS advisor_name 
                           FROM tbl_student_activities a 
@@ -222,6 +238,9 @@ page_header('Student Portal');
     <div>
         <p class="eyebrow">Welcome back, <?= h($student['full_name']) ?></p>
         <h1>Your Performance Overview</h1>
+        <?php if ($current_advisor_name !== ''): ?>
+            <p class="muted" style="margin:.35rem 0 0;">Assigned advisor: <?= h($current_advisor_name) ?></p>
+        <?php endif; ?>
     </div>
 </div>
 
@@ -240,24 +259,34 @@ page_header('Student Portal');
 <section class="layout-two">
     <article class="panel">
         <div class="panel-title">
-            <h2>Current Status</h2>
+            <h2>Current Grade Standing</h2>
             <?php if ($prediction && !empty($prediction['grading_period'])): ?>
                 <span class="pill pill-period-<?= strtolower(str_replace('-', '', $prediction['grading_period'])) ?>"><?= h($prediction['grading_period']) ?> Prediction</span>
             <?php endif; ?>
         </div>
         <?php if ($prediction): ?>
             <div style="text-align: center; padding: 2rem;">
-                <div class="status <?= h(status_class($prediction['predicted_status'])) ?>" style="font-size: 2rem; padding: 1rem 2rem;">
-                    <?= h($prediction['predicted_status']) ?>
-                </div>
-                <?php if ($prediction['predicted_grade']): ?>
+                <?php $portalGrade = (float)($prediction['predicted_grade'] ?? 0); ?>
+                <?php if ($portalGrade > 0): ?>
+                    <?php $gradeStanding = student_portal_grade_status($portalGrade); ?>
+                    <small style="display:block;color:var(--muted);margin-bottom:6px;">Grade Standing</small>
+                    <div class="status <?= h(status_class($gradeStanding)) ?>" style="font-size: 2rem; padding: 1rem 2rem;">
+                        <?= h($gradeStanding) ?>
+                    </div>
                     <p style="margin-top: 1rem; font-size: 1.25rem; font-weight: 700; color: var(--text);">
-                        Predicted Grade: <?= round($prediction['predicted_grade'], 1) ?>%
+                        Computed Grade: <?= round($portalGrade, 1) ?>%
                     </p>
+                    <p style="margin-top:.5rem;color:var(--muted);font-size:.9rem;">
+                        Model estimate: <strong><?= h($prediction['predicted_status']) ?></strong>
+                    </p>
+                <?php else: ?>
+                    <div class="status <?= h(status_class($prediction['predicted_status'])) ?>" style="font-size: 2rem; padding: 1rem 2rem;">
+                        <?= h($prediction['predicted_status']) ?>
+                    </div>
                 <?php endif; ?>
                 <p style="margin-top: 0.5rem; color: var(--text-muted); font-size: 0.85rem;">
                     Evaluated on <?= date('M d, Y', strtotime($prediction['created_at'])) ?>
-                    • <?= round($prediction['confidence'] * 100, 1) ?>% Confidence
+                    • Model confidence: <?= round($prediction['confidence'] * 100, 1) ?>%
                 </p>
                 <div style="margin-top: 2rem; text-align: left;">
                     <strong>Recommendation:</strong>
@@ -277,14 +306,8 @@ page_header('Student Portal');
         <form method="post" id="survey-form" style="display: flex; flex-direction: column; gap: 1rem;">
             <div>
                 <label style="display: block; margin-bottom: 0.25rem; font-weight: 600;">Assigned Advisor / Professor</label>
-                <select name="advisor_id" id="advisor_select" required style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; background-color: #f9f9f9;">
-                    <option value="" disabled <?= empty($current_advisor_id) ? 'selected' : '' ?>>-- Select Your Advisor --</option>
-                    <?php foreach ($advisors_list as $adv): ?>
-                        <option value="<?= $adv['id'] ?>" <?= ($current_advisor_id == $adv['id']) ? 'selected' : '' ?>>
-                            <?= h($adv['full_name']) ?>
-                        </option>
-                    <?php endforeach; ?>
-                </select>
+                <input type="text" value="<?= h($current_advisor_name !== '' ? $current_advisor_name : 'No advisor assigned — please contact the administrator') ?>" disabled
+                       style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; background-color: #f1f5f9; color: #475569;">
             </div>
 
             <div>
@@ -344,7 +367,7 @@ page_header('Student Portal');
 <section class="panel" style="margin-top: 2rem;">
     <div class="panel-title">
         <h2>Semester Prediction Journey</h2>
-        <span>Progressive grade forecasts across grading periods</span>
+        <span>Grade standing from score; ML estimate shown separately</span>
     </div>
     <div class="period-timeline">
         <?php foreach (['Prelim', 'Midterm', 'Semi-Final', 'Final'] as $per): 
@@ -357,13 +380,21 @@ page_header('Student Portal');
                 </h4>
                 <?php if ($pData): ?>
                     <div style="margin-top: 10px;">
-                        <span class="status <?= h(status_class($pData['predicted_status'])) ?>" style="display: inline-block; padding: 4px 10px; font-size: 0.85rem;">
-                            <?= h($pData['predicted_status']) ?>
-                        </span>
-                        <?php if ($pData['predicted_grade']): ?>
+                        <?php $periodGrade = (float)($period_components[$per]['computed_grade'] ?? $pData['predicted_grade'] ?? 0); ?>
+                        <?php if ($periodGrade > 0): ?>
+                            <?php $periodStanding = student_portal_grade_status($periodGrade); ?>
+                            <span class="status <?= h(status_class($periodStanding)) ?>" style="display: inline-block; padding: 4px 10px; font-size: 0.85rem;">
+                                <?= h($periodStanding) ?>
+                            </span>
                             <div style="margin-top: 8px; font-size: 1.15rem; font-weight: 700;">
-                                <?= round($pData['predicted_grade'], 1) ?>%
+                                <?= round($periodGrade, 1) ?>%
                             </div>
+                            <small style="display:block;margin-top:4px;color:var(--muted);">Grade standing</small>
+                            <small style="display:block;margin-top:6px;color:var(--muted);">Model estimate: <?= h($pData['predicted_status']) ?></small>
+                        <?php else: ?>
+                            <span class="status <?= h(status_class($pData['predicted_status'])) ?>" style="display: inline-block; padding: 4px 10px; font-size: 0.85rem;">
+                                <?= h($pData['predicted_status']) ?>
+                            </span>
                         <?php endif; ?>
                         <small style="display: block; margin-top: 6px; color: var(--muted); font-size: 0.75rem;">
                             <?= round($pData['confidence'] * 100, 1) ?>% confidence<br>
@@ -431,7 +462,7 @@ page_header('Student Portal');
 
                         <?php if ($pData): ?>
                             <div>
-                                <small style="color: var(--muted); display: block; font-size: 0.75rem;">FORECAST</small>
+                                <small style="color: var(--muted); display: block; font-size: 0.75rem;">MODEL ESTIMATE</small>
                                 <span class="status <?= h(status_class($pData['predicted_status'])) ?>" style="font-size: 0.8rem; padding: 2px 8px;">
                                     <?= h($pData['predicted_status']) ?> (<?= round((float)$pData['confidence'] * 100, 1) ?>%)
                                 </span>
@@ -571,6 +602,13 @@ page_header('Student Portal');
                             <?= nl2br(h($act['instructions'])) ?>
                         </div>
 
+                        <?php if (!empty($act['criterion_component'])): ?>
+                            <div style="margin-top:.65rem;font-size:.85rem;color:#475569;">
+                                Counts toward <strong><?= h($act['criterion_component']) ?></strong>
+                                (<?= h($act['grading_period']) ?>, <?= h($act['academic_year']) ?> · <?= h($act['semester']) ?>)
+                            </div>
+                        <?php endif; ?>
+
                         <?php if (!empty($act['due_date'])): ?>
                             <div style="margin-top: 0.75rem; font-size: 0.85rem; color: #d9534f; font-weight: 600;">
                                 Due Date: <?= date('M d, Y - g:i A', strtotime($act['due_date'])) ?>
@@ -594,7 +632,7 @@ page_header('Student Portal');
                             <?php if (!empty($act['file_path'])): ?>
                                 <div style="margin-bottom: 0.75rem;">
                                     <a href="download.php?file=<?= urlencode($act['file_path']) ?>" class="button button-primary" style="font-size: 0.85rem; padding: 6px 14px; text-decoration: none; display: inline-block;">
-                                        ⬇ Download Task File
+                                        ⬇ Download <?= h($act["original_file_name"] ?: basename($act["file_path"])) ?>
                                     </a>
                                 </div>
                             <?php endif; ?>

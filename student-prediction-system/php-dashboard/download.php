@@ -15,7 +15,12 @@
  */
 
 require_once __DIR__ . '/bootstrap.php';
-require_login();   // works for both student session and user session
+$studentSession = $_SESSION['student'] ?? null;
+$userSession = current_user();
+if (!$studentSession && !$userSession) {
+    header('Location: student_login.php');
+    exit;
+}
 
 // ── 1. Validate the requested path ───────────────────────────────────────────
 $requested = trim($_GET['file'] ?? '');
@@ -40,6 +45,34 @@ foreach ($allowed_prefixes as $prefix) {
 }
 
 if (!$is_allowed) {
+    http_response_code(403);
+    exit('Access denied.');
+}
+
+// Confirm the requested file belongs to this student or staff account.
+$activityStmt = db()->prepare(
+    'SELECT student_id, assigned_by, file_path, submission_file_path, submission_file, original_file_name
+     FROM tbl_student_activities
+     WHERE file_path = ? OR submission_file_path = ? OR submission_file = ?
+     LIMIT 1'
+);
+$activityStmt->bind_param('sss', $requested, $requested, $requested);
+$activityStmt->execute();
+$activityRow = $activityStmt->get_result()->fetch_assoc();
+$activityStmt->close();
+
+if (!$activityRow) {
+    http_response_code(404);
+    exit('File record not found.');
+}
+
+if ($studentSession) {
+    if ((int)$activityRow['student_id'] !== (int)$studentSession['id']) {
+        http_response_code(403);
+        exit('Access denied.');
+    }
+} elseif (($userSession['role'] ?? '') !== 'Admin'
+    && (int)($activityRow['assigned_by'] ?? 0) !== (int)($userSession['id'] ?? 0)) {
     http_response_code(403);
     exit('Access denied.');
 }
@@ -84,6 +117,14 @@ $original_name = preg_replace('/^activity_\d+_[a-f0-9]+\./', '', $original_name)
 if ($original_name === '' || $original_name === $stored_name) {
     $original_name = $stored_name; // fallback to stored name
 }
+if (str_starts_with($requested, 'uploads/activities/')) {
+    if (!empty($activityRow['original_file_name'])) {
+        $original_name = basename(str_replace('\\', '/', $activityRow['original_file_name']));
+    } else {
+        $original_name = $stored_name;
+    }
+}
+$original_name = str_replace(["\r", "\n", '"'], '', $original_name);
 
 $mime = $mime_map[$ext] ?? 'application/octet-stream';
 
@@ -94,7 +135,7 @@ if (ob_get_level()) {
 }
 
 header('Content-Type: ' . $mime);
-header('Content-Disposition: attachment; filename="' . addslashes($original_name) . '"');
+header("Content-Disposition: attachment; filename=\"download\"; filename*=UTF-8''" . rawurlencode($original_name));
 header('Content-Length: ' . filesize($full_path));
 header('Cache-Control: private, no-cache, must-revalidate');
 header('Pragma: no-cache');

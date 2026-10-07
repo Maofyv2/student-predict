@@ -3,8 +3,9 @@ require_once __DIR__ . '/bootstrap.php';
 require_login();
 
 $user = current_user();
-if (!$user || !in_array($user['role'], ['Admin', 'Advisor'])) {
-    redirect_to('students.php');
+if (!$user || $user['role'] !== 'Admin') {
+    header('Location: students.php?error=unauthorized');
+    exit();
 }
 
 $conn = db();
