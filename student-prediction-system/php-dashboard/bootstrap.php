@@ -796,6 +796,7 @@ function page_header($title) {
     $currentPage = basename($_SERVER['PHP_SELF'] ?? '');
 
     $unread_count = 0;
+    $unread_risk_count = 0;
     if ($user) {
         $current_user_id = (int) $user['id'];
         $stmtNotif = db()->prepare(
@@ -809,6 +810,22 @@ function page_header($title) {
         $stmtNotif->execute();
         $resNotif = $stmtNotif->get_result()->fetch_assoc();
         $unread_count = isset($resNotif['total']) ? (int)$resNotif['total'] : 0;
+        $stmtNotif->close();
+
+        // Count unread At-Risk and Fail Early Warning alerts
+        $stmtRisk = db()->prepare(
+            "SELECT COUNT(*) AS total 
+             FROM tbl_alerts 
+             WHERE user_id = ? 
+               AND alert_type != 'Student Update' 
+               AND message NOT LIKE '%updated their self-assessment profile%' 
+               AND is_read = 0"
+        );
+        $stmtRisk->bind_param('i', $current_user_id);
+        $stmtRisk->execute();
+        $resRisk = $stmtRisk->get_result()->fetch_assoc();
+        $unread_risk_count = isset($resRisk['total']) ? (int)$resRisk['total'] : 0;
+        $stmtRisk->close();
     }
     ?>
     <!doctype html>
@@ -860,11 +877,14 @@ function page_header($title) {
                             </span>
                             <span class="nav-label">Reports</span>
                         </a>
-                        <a href="alerts.php" class="<?= $currentPage === 'alerts.php' ? 'active' : '' ?>" title="Alerts">
+                        <a href="alerts.php" class="<?= $currentPage === 'alerts.php' ? 'active' : '' ?>" title="Early Warning Alerts">
                             <span class="nav-icon">
                                 <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h24s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
                             </span>
                             <span class="nav-label">Alerts</span>
+                            <?php if ($unread_risk_count > 0): ?>
+                                <span class="badge-count" style="margin-left: auto; background-color: #dc2626;"><?= $unread_risk_count ?></span>
+                            <?php endif; ?>
                         </a>
 
                         <?php if ($user['role'] === 'Advisor'): ?>
@@ -916,6 +936,12 @@ function page_header($title) {
                                 <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
                             </span>
                             <span class="nav-label">Student Portal</span>
+                        </a>
+                        <a href="student_activities.php" class="<?= $currentPage === 'student_activities.php' ? 'active' : '' ?>" title="Advisor Guidance & Activities">
+                            <span class="nav-icon">
+                                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                            </span>
+                            <span class="nav-label">Guidance &amp; Activities</span>
                         </a>
                     <?php endif; ?>
                 </nav>

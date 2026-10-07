@@ -633,12 +633,11 @@ async function updateActivityCriteria() {
         if (!response.ok) throw new Error(result.error || 'Could not load score components.');
 
         result.components.forEach(item => {
-        const option = document.createElement('option');
+            const option = document.createElement('option');
             option.value = item.name;
-            const scoreStatus = item.missing ? 'MISSING SCORE' : `recorded ${item.raw_score}/${item.max_score}`;
-            option.textContent = `${item.name} — ${scoreStatus} (${item.weight}% weight)`;
+            option.textContent = item.name;
             option.dataset.maxScore = item.max_score;
-        componentSelect.appendChild(option);
+            componentSelect.appendChild(option);
         });
         const firstMissing = result.components.find(item => item.missing);
         if (firstMissing) componentSelect.value = firstMissing.name;
@@ -657,7 +656,7 @@ function updateActivityCriterionMax() {
     const component = document.getElementById('activityCriterion').value;
     const config = (ACTIVITY_GRADING_WEIGHTS[period] || {})[component];
     document.getElementById('activityCriterionMax').textContent = config
-        ? `This criterion is weighted ${config.weight}% and has a maximum raw score of ${config.max_score}.`
+        ? `Maximum raw score: ${config.max_score}.`
         : 'The student\'s score will count toward the selected component.';
 }
 
@@ -673,7 +672,7 @@ function openSubmissionModal(data) {
     scoreInput.max = criterionMax;
     const savedRawScore = Number(data.raw_score ?? (data.grade ? parseFloat(data.grade) : NaN));
     scoreInput.value = Number.isFinite(savedRawScore) ? savedRawScore : '';
-    document.getElementById('subModalMaxLabel').textContent = `(out of ${criterionMax})`;
+    document.getElementById('subModalMaxLabel').textContent = `out of ${criterionMax}`;
     document.getElementById('subModalCriterion').textContent = data.criterion_component
         ? `Counts toward: ${data.criterion_component} • ${data.grading_period} • ${data.academic_year} / ${data.semester}`
         : 'Legacy activity: no grading criterion was selected when it was assigned.';
