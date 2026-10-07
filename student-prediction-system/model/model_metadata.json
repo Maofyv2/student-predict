@@ -80,7 +80,6 @@
         }
       },
       "feature_importance": {
-<<<<<<< HEAD
         "computed_grade": 0.51348,
         "attendance_rate": 0.34623,
         "lab_score": 0.08633,
@@ -90,17 +89,6 @@
         "working_student": 0.00764,
         "internet_access": 0.00537,
         "parental_education": 0.00397
-=======
-        "computed_grade": 0.53099,
-        "attendance_rate": 0.34394,
-        "lab_score": 0.07856,
-        "digital_literacy": 0.01449,
-        "household_income": 0.01255,
-        "internet_access": 0.00645,
-        "study_hours": 0.00629,
-        "working_student": 0.00594,
-        "parental_education": 0.00079
->>>>>>> 27c34c7 (system)
       }
     },
     "Midterm": {
@@ -160,7 +148,6 @@
         }
       },
       "feature_importance": {
-<<<<<<< HEAD
         "computed_grade": 0.46806,
         "prelim_grade": 0.25699,
         "attendance_rate": 0.23201,
@@ -171,18 +158,6 @@
         "internet_access": 0.00143,
         "working_student": 0.0014,
         "household_income": 0.0008
-=======
-        "computed_grade": 0.51591,
-        "attendance_rate": 0.22965,
-        "prelim_grade": 0.21806,
-        "lab_score": 0.02638,
-        "study_hours": 0.0047,
-        "internet_access": 0.00287,
-        "household_income": 0.00118,
-        "parental_education": 0.00075,
-        "working_student": 0.0005,
-        "digital_literacy": 0.0
->>>>>>> 27c34c7 (system)
       }
     },
     "Semi-Final": {
@@ -243,19 +218,11 @@
         }
       },
       "feature_importance": {
-<<<<<<< HEAD
         "computed_grade": 0.50888,
         "attendance_rate": 0.23437,
         "midterm_grade": 0.16814,
         "prelim_grade": 0.07777,
         "lab_score": 0.01085,
-=======
-        "computed_grade": 0.51002,
-        "attendance_rate": 0.19905,
-        "midterm_grade": 0.16414,
-        "prelim_grade": 0.1184,
-        "lab_score": 0.00839,
->>>>>>> 27c34c7 (system)
         "internet_access": 0.0,
         "digital_literacy": 0.0,
         "household_income": 0.0,
@@ -323,21 +290,12 @@
         }
       },
       "feature_importance": {
-<<<<<<< HEAD
         "semi_final_grade": 0.40998,
         "midterm_grade": 0.19804,
         "attendance_rate": 0.1765,
         "computed_grade": 0.13943,
         "prelim_grade": 0.07237,
         "lab_score": 0.00368,
-=======
-        "semi_final_grade": 0.49751,
-        "attendance_rate": 0.24899,
-        "computed_grade": 0.12991,
-        "prelim_grade": 0.09653,
-        "midterm_grade": 0.02314,
-        "lab_score": 0.00391,
->>>>>>> 27c34c7 (system)
         "internet_access": 0.0,
         "digital_literacy": 0.0,
         "household_income": 0.0,
@@ -364,15 +322,9 @@
       ],
       "training_rows": 1500,
       "test_rows": 375,
-<<<<<<< HEAD
       "mae": 4.418,
       "rmse": 5.248,
       "within_5_points_rate": 0.5867
-=======
-      "mae": 4.4,
-      "rmse": 5.241,
-      "within_5_points_rate": 0.5893
->>>>>>> 27c34c7 (system)
     },
     "Midterm": {
       "source_period": "Midterm",
@@ -391,15 +343,9 @@
       ],
       "training_rows": 1500,
       "test_rows": 375,
-<<<<<<< HEAD
       "mae": 5.07,
       "rmse": 6.08,
       "within_5_points_rate": 0.5493
-=======
-      "mae": 5.097,
-      "rmse": 6.104,
-      "within_5_points_rate": 0.5333
->>>>>>> 27c34c7 (system)
     },
     "Semi-Final": {
       "source_period": "Semi-Final",
@@ -419,7 +365,6 @@
       ],
       "training_rows": 1500,
       "test_rows": 375,
-<<<<<<< HEAD
       "mae": 4.921,
       "rmse": 6.045,
       "within_5_points_rate": 0.5387
@@ -432,20 +377,6 @@
     "computed_grade": 0.13943,
     "prelim_grade": 0.07237,
     "lab_score": 0.00368,
-=======
-      "mae": 4.961,
-      "rmse": 6.09,
-      "within_5_points_rate": 0.56
-    }
-  },
-  "feature_importance": {
-    "semi_final_grade": 0.49751,
-    "attendance_rate": 0.24899,
-    "computed_grade": 0.12991,
-    "prelim_grade": 0.09653,
-    "midterm_grade": 0.02314,
-    "lab_score": 0.00391,
->>>>>>> 27c34c7 (system)
     "internet_access": 0.0,
     "digital_literacy": 0.0,
     "household_income": 0.0,

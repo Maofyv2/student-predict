@@ -564,6 +564,17 @@ page_header('Progressive Prediction');
 .forecast-setup__steps span { display: inline-flex; align-items: center; gap: 7px; }
 .forecast-setup__steps b { display: inline-grid; place-items: center; width: 19px; height: 19px; border-radius: 50%; background: var(--surface-subtle); color: var(--muted); font-size: .69rem; }
 .grading-sequence { justify-content: flex-start !important; padding: 0 0 18px !important; background: transparent !important; border: 0 !important; border-bottom: 1px solid var(--line) !important; border-radius: 0 !important; }
+.student-picker { position: relative; }
+.student-picker__input { width: 100%; padding: 10px 42px 10px 14px; border: 1px solid var(--line); border-radius: 6px; background: #fff; color: var(--text); font-size: .95rem; }
+.student-picker__input:focus { outline: 0; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(var(--primary-rgb), .10); }
+.student-picker::after { content: ''; position: absolute; right: 16px; top: 15px; width: 7px; height: 7px; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(45deg); pointer-events: none; }
+.student-picker__list { display: none; position: absolute; z-index: 30; top: calc(100% + 5px); left: 0; right: 0; max-height: 250px; overflow-y: auto; background: #fff; border: 1px solid var(--line-strong); border-radius: 6px; box-shadow: var(--shadow-lg); }
+.student-picker.is-open .student-picker__list { display: block; }
+.student-picker__option { width: 100%; padding: 10px 14px; border: 0; border-bottom: 1px solid var(--line); background: #fff; color: var(--text-secondary); text-align: left; cursor: pointer; font: inherit; font-size: .86rem; }
+.student-picker__option:last-child { border-bottom: 0; }
+.student-picker__option:hover, .student-picker__option:focus { outline: 0; background: var(--surface-subtle); }
+.student-picker__option strong { color: var(--text); font-weight: 700; }
+.student-picker__empty { padding: 12px 14px; color: var(--muted); font-size: .85rem; }
 
 @media (max-width: 760px) {
     .forecast-periods { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -755,8 +766,12 @@ page_header('Progressive Prediction');
             <!-- Quick student dropdown -->
             <div style="margin-bottom:20px;padding:14px 18px;background:var(--surface-strong);border-radius:8px;border:1px solid var(--line);">
                 <label for="student_quick_select" style="display:block;margin-bottom:6px;font-weight:700;font-size:.9rem;">Quick Select Student:</label>
-                <select id="student_quick_select" style="width:100%;padding:10px 14px;border:1px solid var(--line);border-radius:6px;background:#fff;font-size:.95rem;color:var(--text);">
-                    <option value="">— Select an enrolled student —</option>
+                <div class="student-picker" id="student_picker">
+                    <input class="student-picker__input" id="student_quick_select" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="student_picker_list" placeholder="Type a name or student number" value="<?= h(old_value('student_no')) ?>" autocomplete="off">
+                    <div class="student-picker__list" id="student_picker_list" role="listbox"></div>
+                </div>
+                <select id="student_quick_select_legacy" aria-hidden="true" tabindex="-1" style="display:none;">
+                    <option value=""> Select an enrolled student </option>
                     <?php foreach ($registeredStudents as $st): ?>
                         <option value="<?= h($st['student_no']) ?>" <?= old_value('student_no') === $st['student_no'] ? 'selected' : '' ?>>
                             <?= h($st['student_no']) ?> — <?= h($st['full_name']) ?> (<?= h($st['year_level']) ?>, <?= h($st['section']) ?>)
@@ -958,13 +973,71 @@ function applyStudentProfile(student, sv = {}) {
 /* Quick-select student dropdown                                    */
 /* --------------------------------------------------------------- */
 const quickSelectEl = document.getElementById('student_quick_select');
-if (quickSelectEl) {
-    quickSelectEl.addEventListener('change', function () {
-        const sno = this.value;
-        const snoInput = document.getElementById('student_no');
-        if (sno && snoInput) {
-            snoInput.value = sno;
+const studentPickerEl = document.getElementById('student_picker');
+const studentPickerListEl = document.getElementById('student_picker_list');
+
+function studentPickerLabel(student) {
+    return `${student.student_no} — ${student.full_name || ''}${student.year_level ? ` (${student.year_level}${student.section ? ', ' + student.section : ''})` : ''}`;
+}
+
+function renderStudentPicker(query = '') {
+    if (!studentPickerListEl) return;
+    const term = query.trim().toLowerCase();
+    const students = Object.values(REGISTERED_STUDENTS).filter(student => {
+        const searchable = `${student.student_no || ''} ${student.full_name || ''} ${student.year_level || ''} ${student.section || ''}`.toLowerCase();
+        return !term || searchable.includes(term);
+    });
+    studentPickerListEl.innerHTML = '';
+    if (!students.length) {
+        studentPickerListEl.innerHTML = '<div class="student-picker__empty">No matching student found.</div>';
+        return;
+    }
+    students.forEach(student => {
+        const option = document.createElement('button');
+        option.type = 'button';
+        option.className = 'student-picker__option';
+        option.setAttribute('role', 'option');
+        const studentNo = document.createElement('strong');
+        studentNo.textContent = student.student_no || '';
+        option.appendChild(studentNo);
+        option.append(` — ${student.full_name || ''}${student.year_level ? ` (${student.year_level}${student.section ? ', ' + student.section : ''})` : ''}`);
+        option.addEventListener('mousedown', event => {
+            event.preventDefault();
+            quickSelectEl.value = studentPickerLabel(student);
+            document.getElementById('student_no').value = student.student_no;
+            studentPickerEl.classList.remove('is-open');
+            quickSelectEl.setAttribute('aria-expanded', 'false');
+            applyStudentProfile(student);
             loadStudentStatus();
+        });
+        studentPickerListEl.appendChild(option);
+    });
+}
+
+if (quickSelectEl && studentPickerEl) {
+    const initialStudentNo = quickSelectEl.value.trim();
+    if (REGISTERED_STUDENTS[initialStudentNo]) {
+        quickSelectEl.value = studentPickerLabel(REGISTERED_STUDENTS[initialStudentNo]);
+    }
+    quickSelectEl.addEventListener('focus', function () {
+        renderStudentPicker(this.value);
+        studentPickerEl.classList.add('is-open');
+        this.setAttribute('aria-expanded', 'true');
+    });
+    quickSelectEl.addEventListener('input', function () {
+        renderStudentPicker(this.value);
+        studentPickerEl.classList.add('is-open');
+    });
+    quickSelectEl.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape') {
+            studentPickerEl.classList.remove('is-open');
+            this.setAttribute('aria-expanded', 'false');
+        }
+    });
+    document.addEventListener('click', function (event) {
+        if (!studentPickerEl.contains(event.target)) {
+            studentPickerEl.classList.remove('is-open');
+            quickSelectEl.setAttribute('aria-expanded', 'false');
         }
     });
 }
@@ -977,7 +1050,7 @@ if (snoInput) {
         const qs = document.getElementById('student_quick_select');
         const val = this.value.trim();
         if (qs && REGISTERED_STUDENTS[val]) {
-            qs.value = val;
+            qs.value = studentPickerLabel(REGISTERED_STUDENTS[val]);
             applyStudentProfile(REGISTERED_STUDENTS[val]);
         }
     });
@@ -1014,7 +1087,7 @@ function loadStudentStatus() {
             if (st) applyStudentProfile(st, sv);
 
             const qs = document.getElementById('student_quick_select');
-            if (qs && sno) qs.value = sno;
+            if (qs && REGISTERED_STUDENTS[sno]) qs.value = studentPickerLabel(REGISTERED_STUDENTS[sno]);
 
             const pg = res.data?.period_grades || {};
             const allPeriods = ['Prelim', 'Midterm', 'Semi-Final', 'Final'];
