@@ -193,7 +193,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         advisor_id=COALESCE(advisor_id, VALUES(advisor_id)),
                         professor_id=COALESCE(professor_id, VALUES(professor_id))'
                 );
-                $ownerId = $_isAdvisor ? $_advisorId : null;
+                $currentUser = current_user();
+                $ownerId = (int) ($currentUser['id'] ?? 0) ?: null;
                 $stmt->bind_param('sssssdiisii',
                     $studentNo, $fullName, $yearLevel, $section, $gender,
                     $householdIncome, $parentalEducation, $scholarshipStatus, $workingStudent,
@@ -561,6 +562,70 @@ page_header('Progressive Prediction');
             </div>
             <?php endif; ?>
         </div>
+
+        <?php
+        // --- Period Grades Summary ---
+        $pgStudentId = null;
+        if (!empty($result['student_no'])) {
+            $pgStmt = db()->prepare("SELECT id FROM tbl_students WHERE student_no = ? LIMIT 1");
+            $pgStmt->bind_param('s', $result['student_no']);
+            $pgStmt->execute();
+            $pgRow = $pgStmt->get_result()->fetch_assoc();
+            $pgStudentId = $pgRow['id'] ?? null;
+        }
+        $pgAY  = $result['academic_year'] ?? old_value('academic_year');
+        $pgSem = $result['semester']      ?? old_value('semester');
+        $pgGrades = [];
+        if ($pgStudentId && $pgAY && $pgSem) {
+            $pgQ = db()->prepare(
+                "SELECT period, computed_grade FROM tbl_grade_components
+                  WHERE student_id = ? AND academic_year = ? AND semester = ?
+                  ORDER BY FIELD(period,'Prelim','Midterm','Semi-Final','Final')"
+            );
+            $pgQ->bind_param('iss', $pgStudentId, $pgAY, $pgSem);
+            $pgQ->execute();
+            foreach ($pgQ->get_result()->fetch_all(MYSQLI_ASSOC) as $pgr) {
+                $pgGrades[$pgr['period']] = (float)$pgr['computed_grade'];
+            }
+        }
+        // Include current predicted period
+        if (!empty($result['grading_period']) && !isset($pgGrades[$result['grading_period']])) {
+            $pgGrades[$result['grading_period']] = (float)($result['computed_grade'] ?? 0);
+        }
+        $gwaVal = count($pgGrades) > 0 ? array_sum($pgGrades) / count($pgGrades) : null;
+        ?>
+
+        <?php if (!empty($pgGrades)): ?>
+        <div style="margin-top:20px;">
+            <div style="font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:10px;">Period Grades</div>
+            <div class="period-summary-grid">
+                <?php foreach (['Prelim','Midterm','Semi-Final','Final'] as $pg_period): ?>
+                <div class="psg-card">
+                    <div class="period-name"><?= h($pg_period) ?></div>
+                    <?php if (isset($pgGrades[$pg_period])): ?>
+                        <div class="actual-grade"><?= number_format($pgGrades[$pg_period], 2) ?>%</div>
+                        <?php if ($pg_period === ($result['grading_period'] ?? '')): ?>
+                            <div class="pred-grade" style="color:var(--blue);font-size:.75rem;font-weight:700;margin-top:3px;">Current Period</div>
+                        <?php endif; ?>
+                    <?php else: ?>
+                        <div class="na-tag">Not yet entered</div>
+                    <?php endif; ?>
+                </div>
+                <?php endforeach; ?>
+            </div>
+            <?php if ($gwaVal !== null): ?>
+            <div style="margin-top:12px;background:linear-gradient(135deg,#1e3a8a,#3b82f6);color:#fff;border-radius:10px;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+                <div>
+                    <div style="font-size:.75rem;text-transform:uppercase;letter-spacing:.05em;opacity:.85;">General Weighted Average (GWA)</div>
+                    <div style="font-size:2rem;font-weight:800;line-height:1.1;margin-top:2px;"><?= number_format($gwaVal, 2) ?>%</div>
+                </div>
+                <div style="font-size:.8rem;opacity:.8;">
+                    Based on <?= count($pgGrades) ?> grading period<?= count($pgGrades) !== 1 ? 's' : '' ?>
+                </div>
+            </div>
+            <?php endif; ?>
+        </div>
+        <?php endif; ?>
     </section>
     <?php if (!empty($result['risk_factors'])): ?>
         <section class="panel" style="margin-bottom:16px;">
@@ -715,20 +780,12 @@ page_header('Progressive Prediction');
                            name="<?= h($name) ?>" id="field_<?= h($name) ?>"
                            value="<?= h($posted) ?>"
                            placeholder="Leave blank if missing"
-                           oninput="recalcGrade()">
+                           oninput="checkMinInputs()">
                 </label>
             <?php endforeach; ?>
         </div>
 
-        <!-- Live grade preview -->
-        <div class="computed-grade-preview" id="grade-preview" style="display:none;margin-top:16px;">
-            <div>
-                <div class="cgp-label">Computed Weighted Grade</div>
-                <div class="cgp-value" id="grade-preview-value">—</div>
-                <div class="cgp-note" id="grade-preview-note"></div>
-            </div>
-            <div id="grade-preview-missing" style="font-size:.8rem;opacity:.8;"></div>
-        </div>
+
     </div>
 
     <!-- Section 4: Socio-Demographic -->
@@ -937,7 +994,7 @@ function fetchStudentData(sno) {
                 if (pc.project_score !== null)     document.getElementById('field_project_score').value    = pc.project_score;
                 if (pc.attendance_rate !== null)   document.getElementById('field_attendance_rate').value  = pc.attendance_rate;
                 if (pc.lab_score !== null)         document.getElementById('field_lab_score').value        = pc.lab_score;
-                recalcGrade();
+                checkMinInputs();
             }
         })
         .catch(err => console.error('Error fetching student:', err));
@@ -955,7 +1012,7 @@ function onPeriodChange() {
     updateWeightBadges();
     updatePrevGradesBanner();
     showSections();
-    recalcGrade();
+    checkMinInputs();
 
     // Reload period-specific components from DB
     const sno = document.getElementById('student_no').value.trim();
@@ -1037,71 +1094,31 @@ function updateWeightBadges() {
 }
 
 /* --------------------------------------------------------------- */
-/* Live grade computation                                           */
+/* Minimum-input guard (replaces live grade compute)               */
 /* --------------------------------------------------------------- */
-function recalcGrade() {
-    const weights = ALL_WEIGHTS[currentPeriod] || {};
-    if (!Object.keys(weights).length) {
-        document.getElementById('grade-preview').style.display = 'none';
-        return;
-    }
-
-    let totalWeight   = 0;
-    let weightedScore = 0;
-    let present       = 0;
-    const missing     = [];
-
-    const fieldMap = {
-        'Exam':       'exam_score',
-        'Quiz':       'quiz_score',
-        'Activities': 'activity_score',
-        'Assignment': 'assignment_score',
-        'Project':    'project_score',
-    };
-
-    Object.entries(weights).forEach(([comp, cfg]) => {
-        const wt  = typeof cfg === 'object' ? (cfg.weight    || 0) : cfg;
-        const ms  = typeof cfg === 'object' ? (cfg.max_score || 100) : 100;
-        const fieldId = 'field_' + (fieldMap[comp] || comp.toLowerCase() + '_score');
-        const el  = document.getElementById(fieldId);
-        const val = el ? el.value.trim() : '';
-        if (val === '') {
-            missing.push(comp);
-        } else {
-            const num = parseFloat(val);
-            if (!isNaN(num) && num >= 0 && num <= ms) {
-                const normPct  = (num / ms) * 100;
-                totalWeight   += wt;
-                weightedScore += normPct * (wt / 100);
-                present++;
-            } else {
-                missing.push(comp);
-            }
-        }
-    });
+function checkMinInputs() {
+    const fieldIds = [
+        'field_exam_score', 'field_quiz_score', 'field_activity_score',
+        'field_assignment_score', 'field_project_score',
+        'field_attendance_rate', 'field_lab_score'
+    ];
+    const filled = fieldIds.filter(id => {
+        const el = document.getElementById(id);
+        return el && el.value.trim() !== '';
+    }).length;
 
     const insufEl = document.getElementById('insuf-warning');
-    const preview = document.getElementById('grade-preview');
+    const btn     = document.getElementById('submit-btn');
 
-    if (present < 2) {
+    if (filled < 2) {
         insufEl.style.display = '';
-        preview.style.display = 'none';
-        document.getElementById('submit-btn').disabled = true;
-        document.getElementById('submit-btn').textContent = 'Need more data…';
-        return;
+        btn.disabled = true;
+        btn.textContent = 'Need more data…';
+    } else {
+        insufEl.style.display = 'none';
+        btn.disabled = false;
+        btn.textContent = 'Generate Prediction';
     }
-
-    insufEl.style.display = 'none';
-    document.getElementById('submit-btn').disabled = false;
-    document.getElementById('submit-btn').textContent = 'Generate Prediction';
-
-    const grade   = totalWeight > 0 ? (weightedScore / totalWeight) * 100 : 0;
-    const missStr = missing.length ? 'Missing: ' + missing.join(', ') : 'All components entered';
-
-    preview.style.display = '';
-    document.getElementById('grade-preview-value').textContent  = grade.toFixed(1) + '%';
-    document.getElementById('grade-preview-note').textContent   = `Based on ${present} of ${Object.keys(weights).length} components`;
-    document.getElementById('grade-preview-missing').textContent = missStr;
 }
 
 /* --------------------------------------------------------------- */
@@ -1122,7 +1139,7 @@ if (initialPeriod) {
     updateWeightBadges();
     updatePrevGradesBanner();
     showSections();
-    recalcGrade();
+    checkMinInputs();
 }
 
 const initialSno = document.getElementById('student_no').value.trim();

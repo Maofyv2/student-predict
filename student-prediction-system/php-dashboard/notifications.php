@@ -357,7 +357,8 @@ function openSubmissionModal(data) {
     const filePath = data.submission_file_path || data.submission_file;
 
     if (filePath && filePath.trim() !== '') {
-        fileBtn.href = filePath.startsWith('http') || filePath.startsWith('/') ? filePath : '../' + filePath;
+        fileBtn.href = 'download.php?file=' + encodeURIComponent(filePath);
+        fileBtn.removeAttribute('download');   // download.php sets the header
         fileBtn.style.display = 'inline-block';
         noFileText.style.display = 'none';
     } else {

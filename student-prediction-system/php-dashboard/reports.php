@@ -191,7 +191,6 @@ function get_scoped_department_summary(int $advisorId): array
     return $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 }
 
-
 // Determine current user role for scoping
 $_rpt_user      = current_user();
 $_rpt_isAdvisor = ($_rpt_user['role'] === 'Advisor');
@@ -284,20 +283,9 @@ page_header('Advanced Reports');
                 <h2>Feature Importance Report</h2>
                 <span>Key Predictors</span>
             </div>
-            <?php 
-            $importance = $metadata['feature_importance'] ?? [];
-            $maxImp = $importance ? max($importance) : 1;
-            foreach ($importance as $feature => $score): 
-                $width = round(($score / $maxImp) * 100);
-            ?>
-                <div class="bar-row">
-                    <div class="bar-label">
-                        <span><?= h(ucwords(str_replace('_', ' ', $feature))) ?></span>
-                        <strong><?= round($score, 4) ?></strong>
-                    </div>
-                    <div class="bar-track"><span class="bar-fill feature-fill" style="width: <?= $width ?>%"></span></div>
-                </div>
-            <?php endforeach; ?>
+            <div style="position: relative; width: 100%; min-height: 350px;">
+                <canvas id="featureImportanceChart"></canvas>
+            </div>
         </article>
 
         <article class="panel">
@@ -314,6 +302,49 @@ page_header('Advanced Reports');
             </div>
         </article>
     </div>
+
+    <!-- Chart.js inclusion and initialisation script -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <?php 
+        $importance_data = $metadata['feature_importance'] ?? [];
+        $labels = array_map(function($key) {
+            return ucwords(str_replace('_', ' ', $key));
+        }, array_keys($importance_data));
+        $scores = array_values($importance_data);
+    ?>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const ctx = document.getElementById('featureImportanceChart');
+            if (ctx) {
+                new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: <?= json_encode($labels) ?>,
+                        datasets: [{
+                            label: 'Importance Score',
+                            data: <?= json_encode($scores) ?>,
+                            backgroundColor: '#3b82f6',
+                            borderRadius: 4
+                        }]
+                    },
+                    options: {
+                        indexAxis: 'y',
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false }
+                        },
+                        scales: {
+                            x: {
+                                beginAtZero: true,
+                                max: 0.5
+                            }
+                        }
+                    }
+                });
+            }
+        });
+    </script>
 
 <?php elseif ($tab === 'progressive'): ?>
     <?php
@@ -371,7 +402,7 @@ page_header('Advanced Reports');
                                 <td><strong><?= h($row['full_name']) ?></strong><br><small><?= h($row['student_no']) ?></small></td>
                                 <td><span class="pill pill-period-<?= strtolower(str_replace('-', '', $row['grading_period'] ?? 'default')) ?>"><?= h($row['grading_period'] ?? 'All') ?></span></td>
                                 <td><span class="status <?= h(status_class($row['predicted_status'])) ?>"><?= h($row['predicted_status']) ?></span></td>
-                                <td><strong><?= $row['predicted_grade'] ? round($row['predicted_grade'], 1) . '%' : 'Ã¢â‚¬â€' ?></strong></td>
+                                <td><strong><?= $row['predicted_grade'] ? round($row['predicted_grade'], 1) . '%' : '—' ?></strong></td>
                                 <td><?= round($row['confidence'] * 100, 1) ?>%</td>
                                 <td>
                                     <?php $factors = json_decode($row['risk_factors'] ?: '[]', true); ?>
@@ -415,7 +446,7 @@ page_header('Advanced Reports');
                             <td><?= h($row['year_level']) ?> / <?= h($row['section']) ?></td>
                             <td><span class="pill pill-period-<?= strtolower(str_replace('-', '', $row['grading_period'] ?? 'default')) ?>"><?= h($row['grading_period'] ?? 'Overall') ?></span></td>
                             <td><span class="status <?= h(status_class($row['predicted_status'])) ?>"><?= h($row['predicted_status']) ?></span></td>
-                            <td><strong><?= $row['predicted_grade'] ? round($row['predicted_grade'], 1) . '%' : 'Ã¢â‚¬â€' ?></strong></td>
+                            <td><strong><?= $row['predicted_grade'] ? round($row['predicted_grade'], 1) . '%' : '—' ?></strong></td>
                             <td>
                                 <?php $factors = json_decode($row['risk_factors'] ?: '[]', true); ?>
                                 <div class="chip-list compact">

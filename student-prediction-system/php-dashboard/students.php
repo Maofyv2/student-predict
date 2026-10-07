@@ -7,8 +7,9 @@ $user = $current_user;
 $isAdvisor = ($user['role'] === 'Advisor');
 $advisorId = (int)$user['id'];
 
+// --- Reset Password Handler ---
 if (isset($_POST['reset_password'])) {
-    if (!$current_user || ($current_user['role'] !== 'Admin' && $current_user['role'] !== 'Advisor')) {
+    if ($user['role'] !== 'Admin' && $user['role'] !== 'Advisor') {
         redirect_to('students.php');
     }
 
@@ -16,6 +17,7 @@ if (isset($_POST['reset_password'])) {
     $new_password = $_POST['new_password'] ?? '';
 
     if ($student_id > 0 && !empty($new_password)) {
+        // Enforce ownership if Advisor
         if ($isAdvisor) {
             $chk = db()->prepare("SELECT id FROM tbl_students WHERE id = ? AND (advisor_id = ? OR professor_id = ?)");
             $chk->bind_param('iii', $student_id, $advisorId, $advisorId);
@@ -33,6 +35,7 @@ if (isset($_POST['reset_password'])) {
     redirect_to('students.php?msg=pwd_updated');
 }
 
+// --- Assign Advisor Handler (Admin Only) ---
 if (isset($_POST['assign_advisor']) && $user['role'] === 'Admin') {
     $student_id = (int)$_POST['student_id'];
     $assigned_advisor_id = (int)$_POST['advisor_id'];
@@ -42,6 +45,7 @@ if (isset($_POST['assign_advisor']) && $user['role'] === 'Admin') {
     redirect_to('students.php?msg=assigned');
 }
 
+// --- Delete Student Handler (Admin Only) ---
 if (isset($_POST['delete_student']) && $user['role'] === 'Admin') {
     $student_id = (int)$_POST['student_id'];
     if ($student_id > 0) {
@@ -52,7 +56,14 @@ if (isset($_POST['delete_student']) && $user['role'] === 'Admin') {
     redirect_to('students.php?msg=deleted');
 }
 
-$q = trim($_GET['q'] ?? '');
+// --- Fetch Students with Search and Permission Scoping ---
+$q          = trim($_GET['q'] ?? '');
+$filterYear = trim($_GET['year_level'] ?? '');
+$filterSec  = trim($_GET['section'] ?? '');
+
+// Fetch distinct year levels and sections for filter dropdowns
+$allYearLevels = db()->query("SELECT DISTINCT year_level FROM tbl_students ORDER BY year_level ASC")->fetch_all(MYSQLI_ASSOC);
+$allSections   = db()->query("SELECT DISTINCT section FROM tbl_students ORDER BY section ASC")->fetch_all(MYSQLI_ASSOC);
 
 $sql = "SELECT s.*,
             p.predicted_status,
@@ -69,6 +80,7 @@ $conditions = [];
 $params = [];
 $types = '';
 
+// Ownership: Advisors can only view/search their own students
 if ($isAdvisor) {
     $conditions[] = "(s.advisor_id = ? OR s.professor_id = ?)";
     $params[] = $advisorId;
@@ -76,6 +88,7 @@ if ($isAdvisor) {
     $types .= 'ii';
 }
 
+// Search by Student Name OR Student ID (partial match)
 if ($q !== '') {
     $conditions[] = "(s.full_name LIKE ? OR s.student_no LIKE ?)";
     $like = '%' . $q . '%';
@@ -84,11 +97,25 @@ if ($q !== '') {
     $types .= 'ss';
 }
 
+// Filter by Year Level
+if ($filterYear !== '') {
+    $conditions[] = "s.year_level = ?";
+    $params[] = $filterYear;
+    $types .= 's';
+}
+
+// Filter by Section
+if ($filterSec !== '') {
+    $conditions[] = "s.section = ?";
+    $params[] = $filterSec;
+    $types .= 's';
+}
+
 if (!empty($conditions)) {
     $sql .= " WHERE " . implode(" AND ", $conditions);
 }
 
-$sql .= " ORDER BY s.full_name ASC";
+$sql .= " ORDER BY s.year_level ASC, s.section ASC, s.full_name ASC";
 
 if (!empty($params)) {
     $stmt = db()->prepare($sql);
@@ -162,14 +189,55 @@ page_header('Students');
     <div class="alert alert-error">Access denied: You can only manage students assigned to you.</div>
 <?php endif; ?>
 
-<form class="toolbar" method="get" action="students.php">
-    <div style="display: flex; gap: 8px; width: 100%;">
-        <input type="search" name="q" value="<?= h($q) ?>" placeholder="Search by Student Name or Student ID (e.g. Juan / 2024-00123)..." style="flex: 1;">
+<form class="toolbar" method="get" action="students.php" id="filter-form">
+    <div style="display:flex;gap:8px;width:100%;flex-wrap:wrap;align-items:center;">
+        <input type="search" name="q" value="<?= h($q) ?>"
+               placeholder="Search by name or student ID…"
+               style="flex:1;min-width:180px;">
+
+        <select name="year_level" id="filter_year"
+                style="padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--text);font-size:.9rem;min-width:140px;"
+                onchange="this.form.submit()">
+            <option value="">All Year Levels</option>
+            <?php foreach ($allYearLevels as $yl): ?>
+                <option value="<?= h($yl['year_level']) ?>"
+                    <?= ($filterYear === $yl['year_level']) ? 'selected' : '' ?>>
+                    <?= h($yl['year_level']) ?>
+                </option>
+            <?php endforeach; ?>
+        </select>
+
+        <select name="section" id="filter_section"
+                style="padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--text);font-size:.9rem;min-width:130px;"
+                onchange="this.form.submit()">
+            <option value="">All Sections</option>
+            <?php foreach ($allSections as $sec): ?>
+                <option value="<?= h($sec['section']) ?>"
+                    <?= ($filterSec === $sec['section']) ? 'selected' : '' ?>>
+                    <?= h($sec['section']) ?>
+                </option>
+            <?php endforeach; ?>
+        </select>
+
         <button class="button button-primary" type="submit">Search</button>
-        <?php if ($q !== ''): ?>
-            <a href="students.php" class="button button-secondary">Clear</a>
+
+        <?php if ($q !== '' || $filterYear !== '' || $filterSec !== ''): ?>
+            <a href="students.php" class="button button-secondary">Clear Filters</a>
         <?php endif; ?>
     </div>
+
+    <?php if ($filterYear !== '' || $filterSec !== ''): ?>
+        <div style="margin-top:8px;font-size:.83rem;color:var(--muted);">
+            Showing:
+            <?php if ($filterYear !== ''): ?>
+                <strong><?= h($filterYear) ?></strong>
+            <?php endif; ?>
+            <?php if ($filterSec !== ''): ?>
+                — Section <strong><?= h($filterSec) ?></strong>
+            <?php endif; ?>
+            &nbsp;·&nbsp; <?= count($students) ?> student<?= count($students) !== 1 ? 's' : '' ?> found
+        </div>
+    <?php endif; ?>
 </form>
 
 <section class="panel">
@@ -259,6 +327,7 @@ page_header('Students');
     </div>
 </section>
 
+<!-- Reset Password Modal with Eye Icon -->
 <div id="resetModal" class="reset-modal">
     <div class="reset-modal-card">
         <h3 style="margin: 0 0 6px 0; color: #1e293b; font-size: 20px;">Reset Student Password</h3>

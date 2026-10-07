@@ -223,7 +223,6 @@ page_header('Student Portal');
         <p class="eyebrow">Welcome back, <?= h($student['full_name']) ?></p>
         <h1>Your Performance Overview</h1>
     </div>
-    <a href="logout.php" class="button button-ghost">Logout</a>
 </div>
 
 <?php if (!empty($success_message)): ?>
@@ -594,8 +593,8 @@ page_header('Student Portal');
                         <div style="margin-top: 1rem; padding-top: 0.75rem; border-top: 1px dashed #ccc;">
                             <?php if (!empty($act['file_path'])): ?>
                                 <div style="margin-bottom: 0.75rem;">
-                                    <a href="<?= h($act['file_path']) ?>" target="_blank" download class="button button-primary" style="font-size: 0.85rem; padding: 6px 14px; text-decoration: none; display: inline-block;">
-                                        Download Task File
+                                    <a href="download.php?file=<?= urlencode($act['file_path']) ?>" class="button button-primary" style="font-size: 0.85rem; padding: 6px 14px; text-decoration: none; display: inline-block;">
+                                        ⬇ Download Task File
                                     </a>
                                 </div>
                             <?php endif; ?>
@@ -617,8 +616,8 @@ page_header('Student Portal');
                                         </label>
                                         <input type="file" name="submission_file" style="font-size: 0.8rem; padding: 4px;">
                                         <?php if (!empty($act['submission_file_path'])): ?>
-                                            <a href="<?= h($act['submission_file_path']) ?>" target="_blank" download style="font-size: 0.8rem; display: inline-block; margin-left: 8px; color: #198754; font-weight: bold; text-decoration: underline;">
-                                                View Current File
+                                            <a href="download.php?file=<?= urlencode($act['submission_file_path']) ?>" style="font-size: 0.8rem; display: inline-block; margin-left: 8px; color: #198754; font-weight: bold; text-decoration: underline;">
+                                                ⬇ Re-download My File
                                             </a>
                                         <?php endif; ?>
                                     </div>

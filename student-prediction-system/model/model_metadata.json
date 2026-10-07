@@ -21,8 +21,8 @@
   ],
   "training_rows": 1500,
   "test_rows": 375,
-  "accuracy": 1.0,
-  "weighted_f1": 1.0,
+  "accuracy": 0.9973,
+  "weighted_f1": 0.9973,
   "stage_models": {
     "Prelim": {
       "period": "Prelim",
@@ -80,15 +80,15 @@
         }
       },
       "feature_importance": {
-        "computed_grade": 0.51348,
-        "attendance_rate": 0.34623,
-        "lab_score": 0.08633,
-        "digital_literacy": 0.01538,
-        "household_income": 0.01361,
-        "study_hours": 0.00799,
-        "working_student": 0.00764,
-        "internet_access": 0.00537,
-        "parental_education": 0.00397
+        "computed_grade": 0.53099,
+        "attendance_rate": 0.34394,
+        "lab_score": 0.07856,
+        "digital_literacy": 0.01449,
+        "household_income": 0.01255,
+        "internet_access": 0.00645,
+        "study_hours": 0.00629,
+        "working_student": 0.00594,
+        "parental_education": 0.00079
       }
     },
     "Midterm": {
@@ -148,16 +148,16 @@
         }
       },
       "feature_importance": {
-        "computed_grade": 0.46806,
-        "prelim_grade": 0.25699,
-        "attendance_rate": 0.23201,
-        "lab_score": 0.0315,
-        "study_hours": 0.00355,
-        "parental_education": 0.00218,
-        "digital_literacy": 0.0021,
-        "internet_access": 0.00143,
-        "working_student": 0.0014,
-        "household_income": 0.0008
+        "computed_grade": 0.51591,
+        "attendance_rate": 0.22965,
+        "prelim_grade": 0.21806,
+        "lab_score": 0.02638,
+        "study_hours": 0.0047,
+        "internet_access": 0.00287,
+        "household_income": 0.00118,
+        "parental_education": 0.00075,
+        "working_student": 0.0005,
+        "digital_literacy": 0.0
       }
     },
     "Semi-Final": {
@@ -218,11 +218,11 @@
         }
       },
       "feature_importance": {
-        "computed_grade": 0.50888,
-        "attendance_rate": 0.23437,
-        "midterm_grade": 0.16814,
-        "prelim_grade": 0.07777,
-        "lab_score": 0.01085,
+        "computed_grade": 0.51002,
+        "attendance_rate": 0.19905,
+        "midterm_grade": 0.16414,
+        "prelim_grade": 0.1184,
+        "lab_score": 0.00839,
         "internet_access": 0.0,
         "digital_literacy": 0.0,
         "household_income": 0.0,
@@ -254,19 +254,19 @@
       ],
       "training_rows": 1500,
       "test_rows": 375,
-      "accuracy": 1.0,
-      "weighted_f1": 1.0,
+      "accuracy": 0.9973,
+      "weighted_f1": 0.9973,
       "classification_report": {
         "At-Risk": {
-          "precision": 1.0,
+          "precision": 0.9920634920634921,
           "recall": 1.0,
-          "f1-score": 1.0,
+          "f1-score": 0.9960159362549801,
           "support": 125.0
         },
         "Fail": {
           "precision": 1.0,
-          "recall": 1.0,
-          "f1-score": 1.0,
+          "recall": 0.9655172413793104,
+          "f1-score": 0.9824561403508771,
           "support": 29.0
         },
         "Pass": {
@@ -275,27 +275,27 @@
           "f1-score": 1.0,
           "support": 221.0
         },
-        "accuracy": 1.0,
+        "accuracy": 0.9973333333333333,
         "macro avg": {
-          "precision": 1.0,
-          "recall": 1.0,
-          "f1-score": 1.0,
+          "precision": 0.9973544973544973,
+          "recall": 0.9885057471264368,
+          "f1-score": 0.9928240255352857,
           "support": 375.0
         },
         "weighted avg": {
-          "precision": 1.0,
-          "recall": 1.0,
-          "f1-score": 1.0,
+          "precision": 0.9973544973544973,
+          "recall": 0.9973333333333333,
+          "f1-score": 0.9973152536054611,
           "support": 375.0
         }
       },
       "feature_importance": {
-        "semi_final_grade": 0.40998,
-        "midterm_grade": 0.19804,
-        "attendance_rate": 0.1765,
-        "computed_grade": 0.13943,
-        "prelim_grade": 0.07237,
-        "lab_score": 0.00368,
+        "semi_final_grade": 0.49751,
+        "attendance_rate": 0.24899,
+        "computed_grade": 0.12991,
+        "prelim_grade": 0.09653,
+        "midterm_grade": 0.02314,
+        "lab_score": 0.00391,
         "internet_access": 0.0,
         "digital_literacy": 0.0,
         "household_income": 0.0,
@@ -306,12 +306,12 @@
     }
   },
   "feature_importance": {
-    "semi_final_grade": 0.40998,
-    "midterm_grade": 0.19804,
-    "attendance_rate": 0.1765,
-    "computed_grade": 0.13943,
-    "prelim_grade": 0.07237,
-    "lab_score": 0.00368,
+    "semi_final_grade": 0.49751,
+    "attendance_rate": 0.24899,
+    "computed_grade": 0.12991,
+    "prelim_grade": 0.09653,
+    "midterm_grade": 0.02314,
+    "lab_score": 0.00391,
     "internet_access": 0.0,
     "digital_literacy": 0.0,
     "household_income": 0.0,

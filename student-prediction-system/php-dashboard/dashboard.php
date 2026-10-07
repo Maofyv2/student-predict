@@ -86,7 +86,7 @@ page_header('Dashboard');
         <dl class="model-list">
             <div>
                 <dt>Predictive Model</dt>
-                <dd><?= h($metadata['algorithm'] ?? 'XGBoost Classification') ?></dd>
+                <dd><?= h(str_replace(' (Progressive Stages)', '', $metadata['algorithm'] ?? 'XGBoost Classification')) ?></dd>
             </div>
             <div>
                 <dt>Evaluation Accuracy</dt>

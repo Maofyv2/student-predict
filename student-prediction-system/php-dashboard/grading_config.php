@@ -1,58 +1,56 @@
 <?php
+/**
+ * Dynamic Grading Criteria Configuration
+ * - Advisor: can set custom components, percentage weights, and max scores.
+ * - Admin:   view-only (cannot modify or save).
+ * Total weight per period must equal exactly 100%.
+ */
 require_once __DIR__ . '/bootstrap.php';
 require_login();
 
 $user      = current_user();
 $isAdvisor = ($user['role'] === 'Advisor');
-$errors    = [];
-$success   = false;
+$errors    = [];$success   = false;
 $periods   = ['Prelim', 'Midterm', 'Semi-Final', 'Final'];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_weights'])) {
-    if (!$isAdvisor) {
-        $errors[] = 'Only Academic Advisors can modify grading criteria.';
+    if (!$isAdvisor) {$errors[] = 'Only Academic Advisors can modify grading criteria.';
     } else {
         $conn = db();
-        $submittedCriteria = $_POST['criteria'] ?? [];
+        $submittedCriteria =$_POST['criteria'] ?? [];
 
+        // Validate each period
         $parsedPerPeriod = [];
-        foreach ($periods as $period) {
-            $rows = $submittedCriteria[$period] ?? [];
-            if (empty($rows) || !is_array($rows)) {
-                $errors[] = "At least one criterion must be defined for {$period}.";
+        foreach ($periods as $period) {$rows = $submittedCriteria[$period] ?? [];
+            if (empty($rows) || !is_array($rows)) {$errors[] = "At least one criterion must be defined for {$period}.";
                 continue;
             }
 
             $totalWeight = 0;
-            $seenComponents = [];
-            $periodItems = [];
+            $seenComponents = [];$periodItems = [];
 
-            foreach ($rows as $row) {
+            foreach ($rows as$row) {
                 $compName = trim((string)($row['component'] ?? ''));
                 $weight   = (float)($row['weight'] ?? 0);
                 $maxScore = (float)($row['max_score'] ?? 100);
 
-                if ($compName === '') {
-                    $errors[] = "A component name cannot be blank in {$period}.";
+                if ($compName === '') {$errors[] = "A component name cannot be blank in {$period}.";
                     break;
                 }
                 $compLower = strtolower($compName);
-                if (isset($seenComponents[$compLower])) {
-                    $errors[] = "Duplicate component '{$compName}' in {$period}. Component names must be unique within a period.";
+                if (isset($seenComponents[$compLower])) {$errors[] = "Duplicate component '{$compName}' in {$period}. Component names must be unique within a period.";
                     break;
                 }
                 $seenComponents[$compLower] = true;
 
-                if ($weight < 0 || $weight > 100) {
-                    $errors[] = "Weight for '{$compName}' ({$period}) must be between 0% and 100%.";
+                if ($weight < 0 || $weight > 100) {$errors[] = "Weight for '{$compName}' ({$period}) must be between 0% and 100%.";
                     break;
                 }
-                if ($maxScore <= 0) {
-                    $errors[] = "Maximum score for '{$compName}' ({$period}) must be greater than 0.";
+                if ($maxScore <= 0) {$errors[] = "Maximum score for '{$compName}' ({$period}) must be greater than 0.";
                     break;
                 }
 
-                $totalWeight += $weight;
+                $totalWeight +=$weight;
                 $periodItems[] = [
                     'component' => $compName,
                     'weight'    => $weight,
@@ -60,36 +58,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_weights'])) {
                 ];
             }
 
-            if (abs($totalWeight - 100.0) > 0.05) {
-                $errors[] = "Weights for {$period} must total exactly 100%. Current total: " . round($totalWeight, 2) . "%.";
+            if (abs($totalWeight - 100.0) > 0.05) {$errors[] = "Weights for {$period} must total exactly 100%. Current total: " . round($totalWeight, 2) . "%.";
             }
 
-            $parsedPerPeriod[$period] = $periodItems;
+            $parsedPerPeriod[$period] =$periodItems;
         }
 
-        if (empty($errors)) {
-            $conn->begin_transaction();
+        if (empty($errors)) {$conn->begin_transaction();
             try {
                 $createdBy = (int)$user['id'];
-                foreach ($parsedPerPeriod as $period => $items) {
-                    $delStmt = $conn->prepare('DELETE FROM tbl_grading_weights WHERE period = ?');
-                    $delStmt->bind_param('s', $period);
-                    $delStmt->execute();
+                foreach ($parsedPerPeriod as $period =>$items) {
+                    // Remove existing weights for this period
+                    $delStmt = $conn->prepare('DELETE FROM tbl_grading_weights WHERE period = ?');$delStmt->bind_param('s', $period);$delStmt->execute();
 
-                    $insStmt = $conn->prepare(
+                    // Insert updated dynamic weights
+                    $insStmt =$conn->prepare(
                         'INSERT INTO tbl_grading_weights (period, component, weight, max_score, created_by)
                          VALUES (?, ?, ?, ?, ?)'
                     );
-                    foreach ($items as $item) {
-                        $insStmt->bind_param('ssddi', $period, $item['component'], $item['weight'], $item['max_score'], $createdBy);
-                        $insStmt->execute();
+                    foreach ($items as $item) {$insStmt->bind_param('ssddi', $period,$item['component'], $item['weight'],$item['max_score'], $createdBy);$insStmt->execute();
                     }
                 }
-                $conn->commit();
-                $success = true;
-            } catch (Throwable $e) {
-                $conn->rollback();
-                $errors[] = 'Database error saving grading criteria: ' . $e->getMessage();
+                $conn->commit();$success = true;
+            } catch (Throwable $e) {$conn->rollback();
+                $errors[] = 'Database error saving grading criteria: ' .$e->getMessage();
             }
         }
     }
@@ -130,16 +122,13 @@ page_header('Grading Criteria');
 </div>
 <?php endif; ?>
 
-
 <form method="post" id="weights-form">
     <input type="hidden" name="save_weights" value="1">
 
     <div style="display:grid;gap:20px;">
-        <?php foreach ($periods as $period):
-            $ws = $allWeights[$period] ?? [];
-            $periodKey = strtolower(str_replace(['-', ' '], '_', $period));
-            $periodTotal = 0;
-            foreach ($ws as $cfg) {
+        <?php foreach ($periods as$period):
+            $ws =$allWeights[$period] ?? [];$periodKey = strtolower(str_replace(['-', ' '], '_', $period));$periodTotal = 0;
+            foreach ($ws as$cfg) {
                 $periodTotal += (float)($cfg['weight'] ?? 0);
             }
         ?>
@@ -174,7 +163,7 @@ page_header('Grading Criteria');
                 <tbody id="tbody-<?= $periodKey ?>">
                 <?php 
                 $rowIdx = 0;
-                foreach ($ws as $comp => $cfg): 
+                foreach ($ws as $comp =>$cfg): 
                     $wt = (float)($cfg['weight'] ?? 0);
                     $ms = (float)($cfg['max_score'] ?? 100);
                     $sampleRaw = round($ms * 0.8, 0);
@@ -211,7 +200,7 @@ page_header('Grading Criteria');
                                    style="width:90px;padding:6px;text-align:center;border:1px solid #cbd5e1;border-radius:4px;">
                         </td>
                         <td style="padding:8px 12px;color:var(--muted);font-size:.82rem;" class="sample-formula">
-                            (<?= $sampleRaw ?> / <?= $ms ?>) * <?= $wt ?>% = <?= $sampleContrib ?>%
+                            (<?= $sampleRaw ?> / <?= $ms ?>) * <?= $wt ?>\% = <?= $sampleContrib ?>%
                         </td>
                         <?php if ($isAdvisor): ?>
                         <td style="padding:8px 12px;text-align:center;">
@@ -347,6 +336,7 @@ function removeCriterionRow(btn, periodKey) {
     }
 }
 
+// Preset: Exam 40%, Quiz 20%, Assignment 15%, Project 15%, Attendance 10%
 function applyPresetStandard() {
     if (!confirm('Apply the 5-component standard preset (Exam 40%, Quiz 20%, Assignment 15%, Project 15%, Attendance 10%) to all grading periods?')) {
         return;
