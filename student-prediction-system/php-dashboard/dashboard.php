@@ -123,6 +123,7 @@ page_header('Dashboard');
                 <tr>
                     <th>Student Name &amp; ID</th>
                     <th>Year / Section</th>
+                    <th>Forecast Period</th>
                     <th>Predicted Outcome</th>
                     <th>Confidence</th>
                     <th style="text-align: right;">Evaluation Date</th>
@@ -130,7 +131,7 @@ page_header('Dashboard');
             </thead>
             <tbody>
                 <?php if (!$recent): ?>
-                    <tr><td colspan="5" class="empty">No evaluation predictions recorded yet.</td></tr>
+                    <tr><td colspan="6" class="empty">No evaluation predictions recorded yet.</td></tr>
                 <?php endif; ?>
                 <?php foreach ($recent as $row): ?>
                     <tr>
@@ -139,6 +140,12 @@ page_header('Dashboard');
                             <small><?= h($row['student_no']) ?></small>
                         </td>
                         <td><?= h($row['year_level'] . ' / ' . $row['section']) ?></td>
+                        <td>
+                            <span style="font-weight:700;color:var(--primary);"><?= h($row['grading_period'] ?? '—') ?></span>
+                            <?php if (!empty($row['predicted_grade']) && (float)$row['predicted_grade'] > 0): ?>
+                                <small style="display:block;color:var(--muted);"><?= number_format((float)$row['predicted_grade'], 1) ?>%</small>
+                            <?php endif; ?>
+                        </td>
                         <td><span class="status <?= h(status_class($row['predicted_status'])) ?>"><?= h($row['predicted_status']) ?></span></td>
                         <td><?= (float)$row['confidence'] > 0 ? h((string) round((float) $row['confidence'] * 100, 1)) . '%' : 'N/A' ?></td>
                         <td style="text-align: right;"><?= h(date('M d, Y - h:i A', strtotime($row['created_at']))) ?></td>

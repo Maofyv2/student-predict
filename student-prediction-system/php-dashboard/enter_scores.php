@@ -16,10 +16,6 @@ $PERIOD_PREV = [
 ];
 
 $_es_advisorId = (int)$user['id'];
-
-/* ------------------------------------------------------------------ */
-/* Helper: Calculate GWA from available grading periods               */
-/* ------------------------------------------------------------------ */
 function calculate_gwa(array $periodGrades): ?float {
     $validGrades = [];
     foreach (['Prelim', 'Midterm', 'Semi-Final', 'Final'] as $period) {
@@ -36,9 +32,6 @@ function calculate_gwa(array $periodGrades): ?float {
     return array_sum($validGrades) / count($validGrades);
 }
 
-/* ------------------------------------------------------------------ */
-/* Load students assigned to this advisor                             */
-/* ------------------------------------------------------------------ */
 $stuStmt = db()->prepare(
     "SELECT id, student_no, full_name, year_level, section, gender,
             household_income, parental_education, scholarship_status, working_student
@@ -55,14 +48,8 @@ foreach ($students as $s) {
     $studentMap[$s['id']] = $s;
 }
 
-/* ------------------------------------------------------------------ */
-/* Load grading criteria weights                                      */
-/* ------------------------------------------------------------------ */
 $allWeights = get_all_grading_weights();
 
-/* ------------------------------------------------------------------ */
-/* POST Handling                                                      */
-/* ------------------------------------------------------------------ */
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     $studentId     = (int)($_POST['student_id'] ?? 0);
     $gradingPeriod = trim($_POST['grading_period'] ?? '');
@@ -70,15 +57,13 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     $semester      = trim($_POST['semester'] ?? '');
 
     $formAction = trim($_POST['form_action'] ?? '');
-    $saveScores = ($formAction === 'save_scores' || isset($_POST['save_scores']));
-    $runPredict = ($formAction === 'run_prediction' || isset($_POST['run_prediction']));
+    $saveScores = true; // enter_scores only saves scores, no prediction
 
     $computedGrade = null;
     $missingList   = [];
     $components    = [];
     $recordedScores = [];
 
-    // Basic validation
     if (!$studentId || !$gradingPeriod || !$academicYear || !$semester) {
         $errors[] = 'Student, grading period, academic year, and semester are required.';
     }
@@ -87,11 +72,6 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         $errors[] = 'Invalid grading period selected.';
     }
 
-    if (!$saveScores && !$runPredict) {
-        $errors[] = 'Please click Save Scores.';
-    }
-
-    // Verify student ownership
     if (!$errors) {
         $stu = $studentMap[$studentId] ?? null;
         if (!$stu) {
@@ -106,7 +86,6 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         }
     }
 
-    // Collect raw scores (default 0)
     if (!$errors) {
         $weights = $allWeights[$gradingPeriod] ?? [];
 
@@ -116,7 +95,6 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             if ($compName === 'Activities') $fieldKey = 'activity';
             $postKey   = 'score_' . $fieldKey;
 
-            // Default raw scores to 0
             $raw = $_POST[$postKey] ?? 0;
             if ($raw === '' || $raw === null) {
                 $raw = 0;
@@ -147,7 +125,6 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             }
         }
 
-        // Attendance & Lab inputs
         if (isset($_POST['attendance_rate']) && $_POST['attendance_rate'] !== '') {
             $components['attendance_rate'] = (float)$_POST['attendance_rate'];
         }
@@ -155,37 +132,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             $components['lab_score'] = (float)$_POST['lab_score'];
         }
 
-        // Socio-demographic inputs (use existing student/survey data or defaults)
-        $internetAccess    = 1;
-        $digitalLiteracy   = 3;
-        $householdIncome   = (float)($stu['household_income'] ?? 0);
-        $parentalEducation = (int)($stu['parental_education'] ?? 3);
-        $studyHours        = 4.0;
-        $workingStudent    = (int)($stu['working_student'] ?? 0);
-
-        if ($studentId > 0) {
-            $svChk = db()->prepare("SELECT internet_access, digital_literacy, study_hours FROM tbl_surveys WHERE student_id = ? ORDER BY id DESC LIMIT 1");
-            if ($svChk) {
-                $svChk->bind_param('i', $studentId);
-                $svChk->execute();
-                $svRow = $svChk->get_result()->fetch_assoc();
-                if ($svRow) {
-                    if (isset($svRow['internet_access']))  $internetAccess  = (int)$svRow['internet_access'];
-                    if (isset($svRow['digital_literacy'])) $digitalLiteracy = (int)$svRow['digital_literacy'];
-                    if (isset($svRow['study_hours']))      $studyHours      = (float)$svRow['study_hours'];
-                }
-            }
-        }
-
-        if (isset($_POST['internet_access']))    $internetAccess    = (int)$_POST['internet_access'];
-        if (isset($_POST['digital_literacy']))   $digitalLiteracy   = (int)$_POST['digital_literacy'];
-        if (isset($_POST['household_income']))   $householdIncome   = (float)$_POST['household_income'];
-        if (isset($_POST['parental_education'])) $parentalEducation = (int)$_POST['parental_education'];
-        if (isset($_POST['study_hours']))        $studyHours        = (float)$_POST['study_hours'];
-        if (isset($_POST['working_student']))    $workingStudent    = (int)$_POST['working_student'];
+        // No socio-demographic data needed for enter_scores (scores only)
     }
 
-    // Process Save Scores
     if (!$errors) {
         $weights = $allWeights[$gradingPeriod] ?? [];
         $gradeResult = compute_weighted_grade($components, $weights, 1);
@@ -231,237 +180,29 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             );
             $stmt->execute();
 
-            // If user clicked Save Scores only
-            if ($saveScores && !$runPredict) {
-                // Calculate GWA including this newly saved grade
-                $periodGradesForGwa = get_student_period_grades($studentId, $academicYear, $semester);
-                $periodGradesForGwa[$gradingPeriod] = $computedGrade;
-                $gwa = calculate_gwa($periodGradesForGwa);
+            // Always save-only: compute GWA and return success
+            $periodGradesForGwa = get_student_period_grades($studentId, $academicYear, $semester);
+            $periodGradesForGwa[$gradingPeriod] = $computedGrade;
+            $gwa = calculate_gwa($periodGradesForGwa);
 
-                $success = [
-                    'saved_only'     => true,
-                    'computed_grade' => $computedGrade,
-                    'missing'        => $missingList,
-                    'gwa'            => $gwa,
-                    'period_grades'  => $periodGradesForGwa,
-                ];
-            }
+            $success = [
+                'saved_only'     => true,
+                'computed_grade' => $computedGrade,
+                'missing'        => $missingList,
+                'gwa'            => $gwa,
+                'period_grades'  => $periodGradesForGwa,
+            ];
         }
     }
 
-    // Final is the last period, so it has no next-period forecast target.
-    if (!$errors && $runPredict && $gradingPeriod === 'Final') {
-        $errors[] = 'Final is the last grading period, so there is no later period to forecast.';
-    }
-
-    // Process Generate Prediction (only if scores are saved)
-    if (!$errors && $runPredict && $computedGrade !== null) {
-        // Double-check verification: scores must be recorded in tbl_grade_components
-        $savedCheck = db()->prepare(
-            'SELECT computed_grade FROM tbl_grade_components
-             WHERE student_id = ? AND academic_year = ? AND semester = ? AND period = ? LIMIT 1'
-        );
-        $savedCheck->bind_param('isss', $studentId, $academicYear, $semester, $gradingPeriod);
-        $savedCheck->execute();
-        $savedRow = $savedCheck->get_result()->fetch_assoc();
-
-        if (!$savedRow) {
-            $errors[] = 'Please save the scores first before generating a prediction.';
-        } else {
-            // Check previous period actual grades if applicable
-            $prevGrades = [];
-            foreach ($PERIOD_PREV[$gradingPeriod] as $pp) {
-                $ppKey = strtolower(str_replace('-', '_', $pp)) . '_actual_grade';
-                if (isset($_POST[$ppKey]) && $_POST[$ppKey] !== '') {
-                    $prevGrades[$pp] = (float)$_POST[$ppKey];
-                } else {
-                    $pgRows = get_student_period_grades($studentId, $academicYear, $semester);
-                    if (isset($pgRows[$pp])) {
-                        $prevGrades[$pp] = (float)$pgRows[$pp];
-                    } else {
-                        $errors[] = "Please enter the actual {$pp} grade before running the prediction.";
-                    }
-                }
-            }
-
-            if (!$errors) {
-                $apiPayload = [
-                    'current_period'     => $gradingPeriod,
-                    'attendance_rate'    => $components['attendance_rate'] ?? 85.0,
-                    'lab_score'          => $components['lab_score'] ?? 80.0,
-                    'internet_access'    => $internetAccess,
-                    'digital_literacy'   => $digitalLiteracy,
-                    'household_income'   => $householdIncome,
-                    'parental_education' => $parentalEducation,
-                    'study_hours'        => $studyHours,
-                    'working_student'    => $workingStudent,
-                ];
-
-                $periodGradeMap = [
-                    'Prelim'     => 'prelim_grade',
-                    'Midterm'    => 'midterm_grade',
-                    'Semi-Final' => 'semi_final_grade'
-                ];
-                $apiPayload[$periodGradeMap[$gradingPeriod]] = $computedGrade;
-                foreach ($PERIOD_PREV[$gradingPeriod] as $pp) {
-                    if (isset($prevGrades[$pp]) && isset($periodGradeMap[$pp])) {
-                        $apiPayload[$periodGradeMap[$pp]] = $prevGrades[$pp];
-                    }
-                }
-
-                // Call prediction API (local or remote)
-                $localApi = api_request_local('POST', '/predict-next-period', $apiPayload);
-                $api = $localApi;
-                if (!$localApi['ok']) {
-                    $hostedApi = api_request('POST', '/predict-next-period', $apiPayload);
-                    if ($hostedApi['ok']) {
-                        $api = $hostedApi;
-                    } else {
-                        $api = $hostedApi;
-                        $api['error'] = 'Local Flask API: ' . ($localApi['error'] ?? 'unavailable')
-                            . ' Hosted Flask API: ' . ($hostedApi['error'] ?? 'unavailable');
-                    }
-                }
-
-                if (!$api['ok']) {
-                    $errors[] = $api['error'] ?? 'Prediction service is currently unavailable.';
-                } else {
-                    $conn = db();
-                    $conn->begin_transaction();
-                    try {
-                        // Upsert student info
-                        $stmt = $conn->prepare(
-                            'INSERT INTO tbl_students
-                                (student_no, full_name, year_level, section, gender,
-                                 household_income, parental_education, scholarship_status, working_student)
-                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                             ON DUPLICATE KEY UPDATE
-                                household_income=VALUES(household_income),
-                                parental_education=VALUES(parental_education),
-                                working_student=VALUES(working_student)'
-                        );
-                        $stmt->bind_param(
-                            'sssssdisi',
-                            $stu['student_no'], $stu['full_name'], $stu['year_level'], $stu['section'], $stu['gender'],
-                            $householdIncome, $parentalEducation, $stu['scholarship_status'], $workingStudent
-                        );
-                        $stmt->execute();
-
-                        // Survey insert
-                        $stmt = $conn->prepare(
-                            'INSERT INTO tbl_surveys (student_id, internet_access, digital_literacy, device_availability, study_hours)
-                             VALUES (?, ?, ?, ?, ?)'
-                        );
-                        $devAvail = 'Unknown';
-                        $stmt->bind_param('iiisd', $studentId, $internetAccess, $digitalLiteracy, $devAvail, $studyHours);
-                        $stmt->execute();
-
-                        // Academic record
-                        $prelimGrade  = ($gradingPeriod === 'Prelim'     ? $computedGrade : ($prevGrades['Prelim']     ?? 0));
-                        $midtermGrade = ($gradingPeriod === 'Midterm'    ? $computedGrade : ($prevGrades['Midterm']    ?? 0));
-                        $semiGrade    = ($gradingPeriod === 'Semi-Final' ? $computedGrade : ($prevGrades['Semi-Final'] ?? 0));
-                        $finalGrade   = ($gradingPeriod === 'Final'      ? $computedGrade : 0);
-                        $attRate      = $components['attendance_rate'] ?? 0;
-                        $lScore       = $components['lab_score'] ?? 0;
-
-                        $stmt = $conn->prepare(
-                            'INSERT INTO tbl_academic_records
-                                (student_id, academic_year, semester,
-                                 prelim_grade, midterm_grade, semi_final_grade, final_grade,
-                                 attendance_rate, lab_score)
-                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
-                        );
-                        $stmt->bind_param(
-                            'issdddddd',
-                            $studentId, $academicYear, $semester,
-                            $prelimGrade, $midtermGrade, $semiGrade, $finalGrade, $attRate, $lScore
-                        );
-                        $stmt->execute();
-                        $academicRecordId = (int)$conn->insert_id;
-
-                        // Prediction data
-                        $prediction     = (string)($api['data']['prediction'] ?? 'Unknown');
-                        $predictedGrade = (float)($api['data']['predicted_grade'] ?? $computedGrade);
-                        $confidence     = 0.0; // Grade regression has no classification confidence.
-                        $recomm         = (string)($api['data']['recommendation'] ?? '');
-                        $riskFactors    = json_encode($api['data']['risk_factors'] ?? []);
-                        $missingComp    = json_encode($missingList);
-                        $featurePayload = json_encode($apiPayload);
-                        $metadata       = model_metadata();
-                        $withinFiveRate = $api['data']['within_5_points_rate'] ?? null;
-                        $modelAccuracy  = $withinFiveRate === null ? null : (float)$withinFiveRate;
-                        $f1Score        = 0.0;
-                        $targetPeriod   = (string)($api['data']['target_period'] ?? '');
-                        $algorithm      = 'XGBoost Next-Period Regression (' . $gradingPeriod . ' to ' . $targetPeriod . ')';
-                        $createdBy      = (int)$user['id'];
-
-                        $stmt = $conn->prepare(
-                            'INSERT INTO tbl_predictions
-                                (student_id, academic_record_id, grading_period, predicted_status,
-                                 predicted_grade, confidence, recommendation, risk_factors,
-                                 missing_components, feature_payload, model_accuracy,
-                                 f1_score_log, algorithm, created_by)
-                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
-                        );
-                        $stmt->bind_param(
-                            'iissddssssddsi',
-                            $studentId, $academicRecordId, $targetPeriod, $prediction,
-                            $predictedGrade, $confidence, $recomm, $riskFactors,
-                            $missingComp, $featurePayload, $modelAccuracy,
-                            $f1Score, $algorithm, $createdBy
-                        );
-                        $stmt->execute();
-
-                        // Risk Alert
-                        if ($prediction === 'At-Risk' || $prediction === 'Fail') {
-                            $severity = ($prediction === 'Fail') ? 'High' : 'Medium';
-                            $msg = "Student {$stu['full_name']} ({$stu['student_no']}) — {$gradingPeriod} — flagged as '{$prediction}' with " . round($confidence * 100, 1) . "% confidence.";
-                            $msg = "Student {$stu['full_name']} ({$stu['student_no']}) — forecast for {$targetPeriod}: {$prediction} ({$predictedGrade}%).";
-                            create_alert($studentId, $createdBy, 'Risk', $severity, $msg);
-                        }
-
-                        $conn->commit();
-
-                        // Compute GWA across all available grading periods
-                        $periodGradesForGwa = get_student_period_grades($studentId, $academicYear, $semester);
-                        $periodGradesForGwa[$gradingPeriod] = $computedGrade;
-                        $gwa = calculate_gwa($periodGradesForGwa);
-
-                        // Success payload
-                        $success = $api['data'];
-                        $success['computed_grade']  = $computedGrade;
-                        $success['predicted_grade'] = $predictedGrade;
-                        $success['missing']         = $missingList;
-                        $success['grading_period']  = $gradingPeriod;
-                        $success['target_period']   = $targetPeriod;
-                        $success['student_name']    = $stu['full_name'];
-                        $success['student_no']      = $stu['student_no'];
-                        $success['algorithm']       = $algorithm;
-                        $success['accuracy']        = $modelAccuracy;
-                        $success['within_5_points_rate'] = $modelAccuracy;
-                        $success['f1_score']        = $f1Score;
-                        $success['gwa']             = $gwa;
-                        $success['period_grades']   = $periodGradesForGwa;
-
-                    } catch (Throwable $ex) {
-                        $conn->rollback();
-                        $errors[] = 'Prediction generated but could not be saved: ' . $ex->getMessage();
-                    }
-                }
-            }
-        }
-    }
+    // Prediction has been moved to predictions.php (Dashboard → Forecast)
 }
 
-/* ------------------------------------------------------------------ */
-/* Restore selected context values                                    */
-/* ------------------------------------------------------------------ */
 $selStudentId = (int)($_POST['student_id'] ?? $_GET['student_id'] ?? 0);
 $selPeriod    = trim($_POST['grading_period'] ?? $_GET['grading_period'] ?? '');
 $selAY        = trim($_POST['academic_year'] ?? '2025-2026');
 $selSem       = trim($_POST['semester'] ?? '1st Semester');
 
-// Load existing saved scores from DB for current selection
 $dbScores = [];
 if ($selStudentId && $selPeriod && $selAY && $selSem) {
     $stmt = db()->prepare(
@@ -484,10 +225,8 @@ if ($selStudentId && $selPeriod && $selAY && $selSem) {
     }
 }
 
-// Load previous period grades for the selected student
 $dbPeriodGrades = $selStudentId ? get_student_period_grades($selStudentId, $selAY, $selSem) : [];
 
-// Check if scores are saved in DB or just saved successfully
 $scoresSaved = !empty($dbScores) || ($success && isset($success['saved_only']));
 
 page_header('Enter Scores');
@@ -523,66 +262,419 @@ page_header('Enter Scores');
     font-weight: 600;
 }
 .prediction-result {
-    border-radius: 12px;
-    padding: 22px;
-    margin-bottom: 20px;
-    border: 2px solid var(--line);
+    border-radius: 16px;
+    padding: 26px;
+    margin-bottom: 24px;
+    background: var(--surface, #ffffff);
+    border: 1px solid var(--line, #e2e8f0);
+    box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.06), 0 4px 6px -2px rgba(15, 23, 42, 0.04);
+    position: relative;
+    overflow: hidden;
+    transition: all 0.25s ease;
 }
+.prediction-result::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #3b82f6, #2563eb, #1d4ed8);
+}
+.prediction-result.status-pass::before {
+    background: linear-gradient(90deg, #10b981, #059669);
+}
+.prediction-result.status-risk::before {
+    background: linear-gradient(90deg, #f59e0b, #d97706);
+}
+.prediction-result.status-fail::before {
+    background: linear-gradient(90deg, #ef4444, #dc2626);
+}
+
+.forecast-header-wrap {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 20px;
+    padding-bottom: 18px;
+    border-bottom: 1px solid var(--line, #e2e8f0);
+}
+.forecast-eyebrow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--muted, #64748b);
+    margin-bottom: 6px;
+    flex-wrap: wrap;
+}
+.forecast-period-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: var(--primary-subtle, #eff6ff);
+    color: var(--primary, #1e3a8a);
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    border: 1px solid var(--primary-border, #bfdbfe);
+}
+.forecast-title {
+    margin: 0;
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: var(--text, #0f172a);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.forecast-ai-badge {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 3px 8px;
+    border-radius: 6px;
+    background: #e0e7ff;
+    color: #4338ca;
+}
+
 .prediction-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
     gap: 14px;
-    margin-bottom: 18px;
+    margin-bottom: 20px;
 }
 .prediction-stat {
-    background: rgba(255, 255, 255, .08);
-    border: 1px solid rgba(255, 255, 255, .1);
-    border-radius: 10px;
-    padding: 12px 14px;
+    background: var(--surface-subtle, #f8fafc);
+    border: 1px solid var(--line, #e2e8f0);
+    border-radius: 12px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    position: relative;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.prediction-stat:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);
+    border-color: var(--line-strong, #cbd5e1);
+}
+.prediction-stat.hero-stat {
+    background: linear-gradient(135deg, #f0fdf4 0%, #eff6ff 100%);
+    border-color: #93c5fd;
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.08);
+}
+.prediction-stat-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
 }
 .prediction-stat small {
     display: block;
-    font-size: .74rem;
+    font-size: 0.72rem;
     text-transform: uppercase;
-    letter-spacing: .04em;
-    opacity: .75;
-    margin-bottom: 4px;
+    letter-spacing: 0.05em;
+    color: var(--muted, #64748b);
+    font-weight: 700;
 }
 .prediction-stat strong {
     display: block;
-    font-size: 1.45rem;
+    font-size: 1.65rem;
     font-weight: 800;
+    color: var(--text, #0f172a);
+    line-height: 1.15;
 }
+.prediction-stat .stat-subtitle {
+    font-size: 0.76rem;
+    margin-top: 6px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--muted, #64748b);
+}
+.stat-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 999px;
+}
+.stat-pill-gain {
+    background: #dcfce7;
+    color: #15803d;
+}
+.stat-pill-loss {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+.stat-pill-neutral {
+    background: #f1f5f9;
+    color: #475569;
+}
+
+.accuracy-bar-track {
+    width: 100%;
+    height: 6px;
+    background: #e2e8f0;
+    border-radius: 999px;
+    overflow: hidden;
+    margin-top: 8px;
+}
+.accuracy-bar-fill {
+    height: 100%;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #3b82f6, #10b981);
+    transition: width 0.6s ease;
+}
+
 .gwa-card {
-    background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
-    color: #fff;
-    border-radius: 12px;
-    padding: 18px 20px;
-    margin-top: 16px;
+    background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #2563eb 100%);
+    color: #ffffff;
+    border-radius: 14px;
+    padding: 22px 24px;
+    margin-top: 18px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 24px;
+    box-shadow: 0 10px 20px -5px rgba(30, 58, 138, 0.28);
+    position: relative;
+    overflow: hidden;
+}
+.gwa-card::after {
+    content: '';
+    position: absolute;
+    right: -40px;
+    top: -40px;
+    width: 220px;
+    height: 220px;
+    background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+    pointer-events: none;
+}
+.gwa-info-col {
+    flex: 0 0 auto;
+    min-width: 240px;
 }
 .gwa-label {
-    font-size: .8rem;
+    font-size: 0.75rem;
     text-transform: uppercase;
-    letter-spacing: .05em;
-    opacity: .85;
+    letter-spacing: 0.08em;
+    font-weight: 700;
+    color: #93c5fd;
+    display: flex;
+    align-items: center;
+    gap: 6px;
 }
 .gwa-value {
-    font-size: 2.3rem;
+    font-size: 2.75rem;
     font-weight: 800;
-    line-height: 1.1;
-    margin-top: 4px;
+    line-height: 1.05;
+    margin: 6px 0 4px;
+    letter-spacing: -0.02em;
+    color: #ffffff;
 }
-.period-grade-list {
+.gwa-desc {
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.82);
+}
+.gwa-standing-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 10px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 0.74rem;
+    font-weight: 700;
+    background: rgba(255, 255, 255, 0.18);
+    backdrop-filter: blur(4px);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    color: #ffffff;
+}
+
+.gwa-roadmap-col {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 8px;
+    z-index: 1;
+}
+.roadmap-title {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 700;
+    color: #bfdbfe;
+    align-self: flex-start;
+}
+.period-milestones-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    width: 100%;
+}
+.milestone-card {
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 10px;
+    padding: 10px 12px;
+    backdrop-filter: blur(6px);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    transition: transform 0.2s ease, background 0.2s ease;
+}
+.milestone-card:hover {
+    background: rgba(255, 255, 255, 0.18);
+    transform: translateY(-2px);
+}
+.milestone-card.milestone-actual {
+    background: rgba(16, 185, 129, 0.22);
+    border-color: rgba(16, 185, 129, 0.45);
+}
+.milestone-card.milestone-forecast {
+    background: rgba(245, 158, 11, 0.25);
+    border-color: rgba(245, 158, 11, 0.5);
+    box-shadow: 0 0 12px rgba(245, 158, 11, 0.2);
+}
+.milestone-card.milestone-upcoming {
+    opacity: 0.55;
+    background: rgba(255, 255, 255, 0.06);
+    border-style: dashed;
+}
+.milestone-name {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #e0e7ff;
+}
+.milestone-score {
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: #ffffff;
+    line-height: 1.2;
+}
+.milestone-tag {
+    font-size: 0.65rem;
+    font-weight: 600;
+    opacity: 0.85;
+}
+
+.recomm-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-left: 4px solid #3b82f6;
+    border-radius: 10px;
+    padding: 16px 18px;
+    margin-top: 18px;
+}
+.recomm-icon {
+    flex: 0 0 36px;
+    height: 36px;
+    border-radius: 999px;
+    background: #eff6ff;
+    color: #2563eb;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+    font-weight: 700;
+    border: 1px solid #bfdbfe;
+}
+.recomm-body {
+    flex: 1;
+}
+.recomm-title {
+    font-size: 0.82rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #1e3a8a;
+    margin-bottom: 4px;
+}
+.recomm-text {
+    font-size: 0.92rem;
+    color: var(--text, #0f172a);
+    line-height: 1.5;
+}
+
+.risk-factors-wrap {
+    margin-top: 16px;
     display: flex;
     flex-wrap: wrap;
+    align-items: center;
     gap: 8px;
-    margin-top: 10px;
 }
-.period-grade-item {
-    background: rgba(255, 255, 255, .16);
-    padding: 6px 10px;
-    border-radius: 6px;
-    font-size: .82rem;
+.risk-factors-label {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--muted, #64748b);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+.risk-factor-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #fffbeb;
+    color: #92400e;
+    border: 1px solid #fde68a;
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    transition: transform 0.15s ease, background 0.15s ease;
+}
+.risk-factor-badge:hover {
+    background: #fef3c7;
+    transform: translateY(-1px);
+}
+.no-risk-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #ecfdf5;
+    color: #065f46;
+    border: 1px solid #a7f3d0;
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 0.82rem;
+    font-weight: 600;
+}
+
+@media (max-width: 900px) {
+    .gwa-card {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .gwa-roadmap-col {
+        align-items: stretch;
+    }
+    .period-milestones-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+@media (max-width: 520px) {
+    .prediction-grid {
+        grid-template-columns: 1fr;
+    }
+    .period-milestones-grid {
+        grid-template-columns: 1fr;
+    }
 }
 .prev-grade-box {
     background: var(--surface-strong);
@@ -638,7 +730,6 @@ button:disabled {
     </div>
 </section>
 
-<!-- Error Notices -->
 <?php if ($errors): ?>
     <div class="alert alert-error" style="margin-bottom:16px;">
         <?php foreach ($errors as $e): ?>
@@ -647,128 +738,25 @@ button:disabled {
     </div>
 <?php endif; ?>
 
-<!-- Save Only Success Notification -->
 <?php if ($success && isset($success['saved_only'])): ?>
-    <div class="alert alert-success" style="margin-bottom:16px;">
+    <div class="alert alert-success" style="margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
         <div>
             <strong>✓ Scores Saved:</strong> Scores recorded successfully. Computed grade: <strong><?= round((float)$success['computed_grade'], 2) ?>%</strong>
             <?php if (!empty($success['missing'])): ?>
                 <span style="color:var(--risk-text);font-weight:600;"> — Missing: <?= h(implode(', ', $success['missing'])) ?></span>
             <?php endif; ?>
         </div>
+        <?php if (!empty($stu['student_no'])): ?>
+        <a href="predictions.php?student_no=<?= urlencode($stu['student_no']) ?>&academic_year=<?= urlencode($academicYear ?? '2025-2026') ?>&semester=<?= urlencode($semester ?? '1st Semester') ?>" class="button button-sm button-secondary" style="display:inline-flex;align-items:center;gap:6px;">
+            <span>🔮</span> Generate Next-Period Forecast &rarr;
+        </a>
+        <?php endif; ?>
     </div>
 <?php endif; ?>
 
-<!-- ================================================================ -->
-<!-- Prediction Result Display                                        -->
-<!-- ================================================================ -->
-<?php if ($success && isset($success['prediction'])): ?>
-    <?php
-    $mae         = $success['model_mae'] ?? null;
-    $withinFive  = $success['within_5_points_rate'] ?? null;
-    $compGrade   = round((float)$success['computed_grade'], 2);
-    $predGrade   = round((float)($success['predicted_grade'] ?? $success['computed_grade']), 2);
-    $gwa         = $success['gwa'] ?? null;
-    $statusCls   = status_class($success['prediction']);
-    ?>
-
-    <section class="prediction-result <?= h($statusCls) ?>">
-        <div style="margin-bottom:16px;">
-            <small style="display:block;font-size:.78rem;opacity:.75;margin-bottom:4px;">
-                <?= h($success['grading_period']) ?> to <?= h($success['target_period'] ?? '') ?> Forecast — <?= h($success['student_name']) ?> (<?= h($success['student_no']) ?>)
-            </small>
-            <h2 style="margin:0;font-size:1.5rem;">Next-Period Forecast</h2>
-        </div>
-
-        <div class="prediction-grid">
-            <!-- Computed Grade -->
-            <div class="prediction-stat">
-                <small><?= h($success['grading_period']) ?> Actual Grade</small>
-                <strong><?= $compGrade ?>%</strong>
-            </div>
-
-            <!-- Predicted Grade -->
-            <div class="prediction-stat">
-                <small><?= h($success['target_period'] ?? 'Next Period') ?> Forecast Grade</small>
-                <strong><?= $predGrade ?>%</strong>
-            </div>
-
-            <!-- Prediction / Status -->
-            <div class="prediction-stat">
-                <small>Prediction</small>
-                <strong><?= h($success['prediction']) ?></strong>
-            </div>
-
-            <?php if ($withinFive !== null): ?>
-            <div class="prediction-stat">
-                <small>Validation predictions within ±5 points</small>
-                <strong><?= round((float)$withinFive * 100, 1) ?>%</strong>
-            </div>
-            <?php else: ?>
-            <div class="prediction-stat">
-                <small>Validation predictions within ±5 points</small>
-                <strong style="font-size:.9rem;">Unavailable — restart Flask API to retrain</strong>
-            </div>
-            <?php endif; ?>
-
-            <?php if ($mae !== null): ?>
-            <div class="prediction-stat">
-                <small>Validation MAE</small>
-                <strong>±<?= number_format((float)$mae, 2) ?> points</strong>
-            </div>
-            <?php endif; ?>
-        </div>
-
-        <!-- General Weighted Average (GWA) -->
-        <?php if ($gwa !== null): ?>
-            <div class="gwa-card">
-                <div class="gwa-label">General Weighted Average (GWA)</div>
-                <div class="gwa-value"><?= number_format((float)$gwa, 2) ?></div>
-                <div style="font-size:.78rem;opacity:.8;margin-top:4px;">
-                    Average of available grading-period grades
-                </div>
-                <?php $dispGrades = $success['period_grades'] ?? []; ?>
-                <?php if ($dispGrades): ?>
-                    <div class="period-grade-list">
-                        <?php foreach ($dispGrades as $pName => $pG): ?>
-                            <?php if ($pG !== null && $pG !== ''): ?>
-                                <span class="period-grade-item">
-                                    <?= h($pName) ?>: <strong><?= number_format((float)$pG, 2) ?>%</strong>
-                                </span>
-                            <?php endif; ?>
-                        <?php endforeach; ?>
-                    </div>
-                <?php endif; ?>
-            </div>
-        <?php endif; ?>
-
-        <!-- Recommendation -->
-        <?php if (!empty($success['recommendation'])): ?>
-            <div style="padding:14px 16px;border-radius:8px;background:rgba(255,255,255,.10);margin-top:16px;">
-                <strong>Recommendation:</strong>
-                <div style="margin-top:4px;"><?= h($success['recommendation']) ?></div>
-            </div>
-        <?php endif; ?>
-
-        <!-- Risk Factors -->
-        <?php if (!empty($success['risk_factors'])): ?>
-            <div style="margin-top:12px;">
-                <?php foreach ($success['risk_factors'] as $rf): ?>
-                    <span class="chip" style="background:rgba(0,0,0,.08);margin:2px;">Risk Factor: <?= h($rf) ?></span>
-                <?php endforeach; ?>
-            </div>
-        <?php endif; ?>
-    </section>
-<?php endif; ?>
-
-<!-- ================================================================ -->
-<!-- Main Form                                                        -->
-<!-- ================================================================ -->
 <form method="post" id="scores-form" autocomplete="off">
-    <!-- Hidden input to guarantee button action is always recognized -->
     <input type="hidden" name="form_action" id="form_action" value="">
 
-    <!-- Step 1: Select Student & Context -->
     <div class="panel form-panel" style="margin-bottom:16px;">
         <div class="panel-title"><h2>Step 1 — Student &amp; Grading Period</h2></div>
         <div class="form-grid">
@@ -819,7 +807,6 @@ button:disabled {
         </div>
 
         <?php
-        // --- Grades this semester ---
         $es_allPeriodGrades = [];
         if ($selStudentId && $selAY && $selSem) {
             $gStmt = db()->prepare(
@@ -868,19 +855,18 @@ button:disabled {
         <?php endif; ?>
     </div>
 
-    <!-- Previous Period Actual Grades (shown for Midterm/Semi/Final) -->
     <div id="prev-grades-panel" class="panel form-panel" style="display:none;margin-bottom:16px;">
         <div class="panel-title"><h2>Previous Period Actual Grades</h2></div>
         <div id="prev-grades-body" class="form-grid"></div>
     </div>
 
-    <!-- Step 2: Assessment Scores (Defaults to 0, no live calculation while typing) -->
     <div id="scores-panel" class="panel form-panel" style="display:none;margin-bottom:16px;">
         <div class="panel-title">
             <h2>Step 2 — Assessment Scores <span id="period-label" style="color:var(--blue);"></span></h2>
         </div>
         <p style="font-size:.85rem;color:var(--muted);margin:0 0 14px;">
-            Enter the raw scores. <strong>Save Scores</strong> records the actual grade. Then click <strong>Generate Prediction</strong> to forecast the next grading period from actual grades available so far. Final is the last period and has no next-period forecast.
+            Enter the raw scores below. Click <strong>Save Scores</strong> to compute and record the actual grade.
+            To generate a forecast for the next grading period, go to <strong>Dashboard → Predictions</strong>.
         </p>
 
         <div class="table-wrap">
@@ -897,7 +883,6 @@ button:disabled {
             </table>
         </div>
 
-        <!-- Optional Attendance & Lab -->
         <div class="form-grid" style="margin-top:16px;">
             <label>
                 <span>Attendance Rate (%)</span>
@@ -916,15 +901,10 @@ button:disabled {
         </div>
     </div>
 
-    <!-- Action Buttons -->
     <div id="action-panel" class="form-actions" style="display:none;gap:12px;align-items:center;flex-wrap:wrap;">
         <button type="submit" name="save_scores" value="1" class="button button-primary" id="btn-save"
                 onclick="document.getElementById('form_action').value='save_scores'">
             Save Scores
-        </button>
-        <button type="submit" name="run_prediction" value="1" class="button button-secondary" id="btn-predict"
-                onclick="document.getElementById('form_action').value='run_prediction'">
-            Generate Prediction
         </button>
     </div>
 </form>
@@ -1016,7 +996,6 @@ function buildScoreRows() {
         if (fk === 'attendance') dbColKey = 'attendance_rate';
         if (fk === 'lab')        dbColKey = 'lab_score';
 
-        // Default raw score is 0 if not previously recorded
         const existing = DB_SCORES[dbColKey] ?? DB_SCORES[comp] ?? DB_SCORES[fk + '_score'] ?? 0;
         const initialScore = Number(existing);
         const safeExisting = Number.isFinite(initialScore)
@@ -1081,7 +1060,6 @@ function escapeHtml(value) {
         .replace(/'/g, '&#039;');
 }
 
-// Initial setup
 if (currentPeriod) {
     buildScoreRows();
     buildPrevGrades();
@@ -1089,11 +1067,9 @@ if (currentPeriod) {
 }
 onStudentChange();
 
-// Handle form submission and prevent accidental double clicks without blocking button values
 document.getElementById('scores-form').addEventListener('submit', function(e) {
     const submitBtn = e.submitter;
     if (submitBtn) {
-        // Defer disabling so browser has packaged name & value in the POST request
         setTimeout(() => {
             submitBtn.disabled = true;
             submitBtn.textContent = 'Processing...';

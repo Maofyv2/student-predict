@@ -875,11 +875,11 @@ function page_header($title) {
                                 </span>
                                 <span class="nav-label">Enter Scores</span>
                             </a>
-                            <a href="predictions.php" class="<?= $currentPage === 'predictions.php' ? 'active' : '' ?>" title="Predictions">
+                            <a href="predictions.php" class="<?= $currentPage === 'predictions.php' ? 'active' : '' ?>" title="Forecast &amp; Predictions">
                                 <span class="nav-icon">
                                     <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
                                 </span>
-                                <span class="nav-label">Predictions</span>
+                                <span class="nav-label">Forecast &amp; Predictions</span>
                             </a>
                             <a href="grading_config.php" class="<?= $currentPage === 'grading_config.php' ? 'active' : '' ?>" title="Grading Criteria">
                                 <span class="nav-icon">
