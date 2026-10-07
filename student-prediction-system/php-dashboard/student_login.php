@@ -49,9 +49,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <link rel="icon" type="image/png" href="au.png">
     <link rel="shortcut icon" type="image/png" href="au.png">
     <link rel="apple-touch-icon" href="au.png">
-    <link rel="stylesheet" href="assets.css">
+    <link rel="stylesheet" href="assets.css?v=<?= filemtime(__DIR__ . '/assets.css') ?>">
 </head>
-<body class="login-body">
+<body class="login-body" style="background: url('bg.jpg') no-repeat center center fixed; background-size: cover;">
     <main class="login-shell">
         <section class="login-panel">
             <div class="login-brand">

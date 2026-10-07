@@ -60,10 +60,13 @@ if (isset($_POST['delete_student']) && $user['role'] === 'Admin') {
 $q          = trim($_GET['q'] ?? '');
 $filterYear = trim($_GET['year_level'] ?? '');
 $filterSec  = trim($_GET['section'] ?? '');
+if (strcasecmp($filterSec, 'All Sections') === 0) {
+    $filterSec = '';
+}
 
 // Fetch distinct year levels and sections for filter dropdowns
 $allYearLevels = db()->query("SELECT DISTINCT year_level FROM tbl_students ORDER BY year_level ASC")->fetch_all(MYSQLI_ASSOC);
-$allSections   = db()->query("SELECT DISTINCT section FROM tbl_students ORDER BY section ASC")->fetch_all(MYSQLI_ASSOC);
+$allSections   = db()->query("SELECT DISTINCT section FROM tbl_students WHERE section IS NOT NULL AND TRIM(section) != '' ORDER BY section ASC")->fetch_all(MYSQLI_ASSOC);
 
 $sql = "SELECT s.*,
             p.predicted_status,
@@ -207,17 +210,32 @@ page_header('Students');
             <?php endforeach; ?>
         </select>
 
-        <select name="section" id="filter_section"
-                style="padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--text);font-size:.9rem;min-width:130px;"
-                onchange="this.form.submit()">
-            <option value="">All Sections</option>
-            <?php foreach ($allSections as $sec): ?>
-                <option value="<?= h($sec['section']) ?>"
-                    <?= ($filterSec === $sec['section']) ? 'selected' : '' ?>>
-                    <?= h($sec['section']) ?>
-                </option>
-            <?php endforeach; ?>
-        </select>
+        <!-- Searchable, typeable, scrollable Section Combobox -->
+        <div class="section-combobox-wrapper" id="sectionCombobox">
+            <input type="hidden" name="section" id="hidden_filter_section" value="<?= h($filterSec) ?>">
+            <div class="section-combobox-input-wrap">
+                <input type="text"
+                       id="section_search_input"
+                       class="section-combobox-input"
+                       autocomplete="off"
+                       placeholder="Select or type section…"
+                       value="<?= $filterSec !== '' ? h($filterSec) : 'All Sections' ?>">
+                <button type="button"
+                        id="section_toggle_btn"
+                        class="section-toggle-btn"
+                        aria-label="Browse sections"
+                        title="Browse sections"
+                        tabindex="-1">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="6 9 12 15 18 9"></polyline>
+                    </svg>
+                </button>
+            </div>
+            <div id="sectionDropdown" class="section-dropdown" style="display:none;">
+                <div id="sectionList" class="section-list"></div>
+                <div id="sectionNoMatch" class="section-no-match" style="display:none;">No sections found</div>
+            </div>
+        </div>
 
         <button class="button button-primary" type="submit">Search</button>
 
@@ -357,6 +375,122 @@ page_header('Students');
     </div>
 </div>
 
+<style>
+/* Section Combobox Styles */
+.section-combobox-wrapper {
+    position: relative;
+    min-width: 160px;
+    flex: 0 1 200px;
+}
+.section-combobox-input-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+.section-combobox-input {
+    width: 100%;
+    padding: 8px 30px 8px 10px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--surface);
+    color: var(--text);
+    font-size: .9rem;
+    box-sizing: border-box;
+    transition: border-color .15s, box-shadow .15s;
+}
+.section-combobox-input:focus {
+    outline: none;
+    border-color: var(--primary, #3b82f6);
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+}
+.section-toggle-btn {
+    position: absolute;
+    right: 2px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    padding: 6px 8px;
+    cursor: pointer;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: color .15s;
+}
+.section-toggle-btn:hover {
+    color: var(--text);
+}
+.section-dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    background: var(--surface, #ffffff);
+    border: 1px solid var(--line, #cbd5e1);
+    border-radius: 6px;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.14);
+    z-index: 1000;
+    overflow: hidden;
+}
+.section-list {
+    max-height: 108px; /* Exactly 3 items of 36px each */
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+.section-list::-webkit-scrollbar {
+    width: 6px;
+}
+.section-list::-webkit-scrollbar-track {
+    background: var(--bg, #f8fafc);
+}
+.section-list::-webkit-scrollbar-thumb {
+    background: var(--line, #cbd5e1);
+    border-radius: 3px;
+}
+.section-list::-webkit-scrollbar-thumb:hover {
+    background: var(--muted, #94a3b8);
+}
+.section-item {
+    height: 36px;
+    padding: 0 12px;
+    display: flex;
+    align-items: center;
+    font-size: .88rem;
+    color: var(--text, #1e293b);
+    cursor: pointer;
+    box-sizing: border-box;
+    border-bottom: 1px solid var(--line, #f1f5f9);
+    transition: background-color .12s, color .12s;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.section-item:last-child {
+    border-bottom: none;
+}
+.section-item:hover,
+.section-item.highlighted,
+.section-item.selected {
+    background-color: rgba(59, 130, 246, 0.12);
+    color: var(--primary, #1e3a8a);
+    font-weight: 600;
+}
+.section-no-match {
+    height: 36px;
+    padding: 0 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: .84rem;
+    color: var(--muted, #94a3b8);
+    font-style: italic;
+    background: var(--surface, #ffffff);
+    box-sizing: border-box;
+}
+</style>
+
 <script>
 function openResetModal(id, name, studentNo) {
     document.getElementById('modalStudentId').value = id;
@@ -385,6 +519,182 @@ function toggleModalPassword() {
     btn.setAttribute('aria-label', isPassword ? 'Hide password' : 'Show password');
     btn.setAttribute('title', isPassword ? 'Hide password' : 'Show password');
 }
+
+// Searchable Section Combobox Controller
+(function() {
+    const rawSections = <?= json_encode(array_values(array_filter(array_map(function($s) {
+        return trim($s['section'] ?? '');
+    }, $allSections))), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?> || [];
+
+    const OPTIONS = [
+        { label: 'All Sections', value: '' },
+        ...rawSections.map(sec => ({ label: sec, value: sec }))
+    ];
+
+    const wrapper = document.getElementById('sectionCombobox');
+    const textInput = document.getElementById('section_search_input');
+    const hiddenInput = document.getElementById('hidden_filter_section');
+    const toggleBtn = document.getElementById('section_toggle_btn');
+    const dropdown = document.getElementById('sectionDropdown');
+    const listContainer = document.getElementById('sectionList');
+    const noMatch = document.getElementById('sectionNoMatch');
+
+    if (!wrapper || !textInput || !hiddenInput || !dropdown || !listContainer) return;
+
+    let highlightedIndex = -1;
+    let currentMatches = [];
+
+    function filterOptions(query) {
+        const q = (query || '').toLowerCase().trim();
+        if (!q || q === 'all' || q === 'all sections') {
+            return OPTIONS;
+        }
+        return OPTIONS.filter(opt => opt.label.toLowerCase().includes(q));
+    }
+
+    function renderDropdown(query = '') {
+        currentMatches = filterOptions(query);
+        listContainer.innerHTML = '';
+        highlightedIndex = -1;
+
+        if (currentMatches.length === 0) {
+            listContainer.style.display = 'none';
+            noMatch.style.display = 'flex';
+        } else {
+            noMatch.style.display = 'none';
+            listContainer.style.display = 'block';
+
+            currentMatches.forEach(opt => {
+                const item = document.createElement('div');
+                item.className = 'section-item';
+                item.textContent = opt.label;
+                item.setAttribute('role', 'option');
+
+                if (opt.value === hiddenInput.value) {
+                    item.classList.add('selected');
+                }
+
+                item.addEventListener('mousedown', function(e) {
+                    e.preventDefault(); // Keep focus on input
+                });
+
+                item.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    selectOption(opt);
+                });
+
+                listContainer.appendChild(item);
+            });
+        }
+    }
+
+    function selectOption(opt) {
+        textInput.value = opt.label;
+        hiddenInput.value = opt.value;
+        closeDropdown();
+    }
+
+    function openDropdown() {
+        const q = (textInput.value === 'All Sections') ? '' : textInput.value;
+        renderDropdown(q);
+        dropdown.style.display = 'block';
+    }
+
+    function closeDropdown() {
+        dropdown.style.display = 'none';
+        highlightedIndex = -1;
+    }
+
+    function toggleDropdown() {
+        if (dropdown.style.display === 'none' || !dropdown.style.display) {
+            openDropdown();
+            textInput.focus();
+        } else {
+            closeDropdown();
+        }
+    }
+
+    toggleBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        toggleDropdown();
+    });
+
+    textInput.addEventListener('click', function() {
+        if (dropdown.style.display === 'none' || !dropdown.style.display) {
+            openDropdown();
+        }
+    });
+
+    textInput.addEventListener('focus', function() {
+        if (textInput.value === 'All Sections') {
+            textInput.select();
+        }
+        openDropdown();
+    });
+
+    // Real-time filtering without page reload
+    textInput.addEventListener('input', function() {
+        const query = textInput.value.trim();
+        openDropdown();
+        renderDropdown(query);
+
+        if (!query || query.toLowerCase() === 'all sections') {
+            hiddenInput.value = '';
+        } else {
+            const exact = OPTIONS.find(opt => opt.label.toLowerCase() === query.toLowerCase());
+            hiddenInput.value = exact ? exact.value : query;
+        }
+    });
+
+    // Keyboard navigation
+    textInput.addEventListener('keydown', function(e) {
+        if (dropdown.style.display === 'block') {
+            const items = listContainer.querySelectorAll('.section-item');
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                if (items.length > 0) {
+                    highlightedIndex = (highlightedIndex + 1) % items.length;
+                    updateHighlight(items);
+                }
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                if (items.length > 0) {
+                    highlightedIndex = (highlightedIndex - 1 + items.length) % items.length;
+                    updateHighlight(items);
+                }
+            } else if (e.key === 'Enter') {
+                if (highlightedIndex >= 0 && currentMatches[highlightedIndex]) {
+                    e.preventDefault();
+                    selectOption(currentMatches[highlightedIndex]);
+                }
+            } else if (e.key === 'Escape') {
+                closeDropdown();
+            }
+        }
+    });
+
+    function updateHighlight(items) {
+        items.forEach((item, idx) => {
+            if (idx === highlightedIndex) {
+                item.classList.add('highlighted');
+                item.scrollIntoView({ block: 'nearest' });
+            } else {
+                item.classList.remove('highlighted');
+            }
+        });
+    }
+
+    document.addEventListener('click', function(e) {
+        if (!wrapper.contains(e.target)) {
+            closeDropdown();
+            if (!textInput.value.trim()) {
+                textInput.value = 'All Sections';
+                hiddenInput.value = '';
+            }
+        }
+    });
+})();
 </script>
 
 <?php page_footer(); ?>

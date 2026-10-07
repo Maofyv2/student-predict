@@ -10,45 +10,93 @@ if (!$user || !in_array($user['role'], ['Admin', 'Advisor'])) {
 $conn = db();
 $error_message = '';
 
+// Preview the next student number for the form (non-locking)
+$next_student_no = peek_next_student_no($conn, '26');
+
 // Load available professors from users table
 $professors = db()->query("SELECT id, full_name, username FROM users WHERE role = 'Advisor' AND is_active = 1 ORDER BY full_name ASC")->fetch_all(MYSQLI_ASSOC);
 
+// Available sections & capacity configuration
+$max_capacity = 40;
+$available_sections = ['BSIT 1', 'BSIT 2', 'BSIT 3', 'BSIT 4', 'BSIT 5'];
+
+function get_section_counts($conn, $available_sections) {
+    $counts = [];
+    foreach ($available_sections as $sec) {
+        $counts[$sec] = 0;
+    }
+    $secQuery = $conn->query("SELECT section, COUNT(*) as count FROM tbl_students GROUP BY section");
+    if ($secQuery) {
+        while ($row = $secQuery->fetch_assoc()) {
+            $sName = trim($row['section']);
+            if (isset($counts[$sName])) {
+                $counts[$sName] = (int)$row['count'];
+            }
+        }
+    }
+    return $counts;
+}
+
+$section_counts = get_section_counts($conn, $available_sections);
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $fullname = trim($_POST['fullname'] ?? '');
-    $school_no = trim($_POST['school_no'] ?? '');
     $year_level = trim($_POST['year_level'] ?? '');
     $section = trim($_POST['section'] ?? '');
     $gender = trim($_POST['gender'] ?? '');
     $password = $_POST['password'] ?? '';
 
-    // Assign professor: Admin selects, Advisor assigns self
+    // Assign professor: Admin selects/types, Advisor assigns self
     if ($user['role'] === 'Admin') {
         $advisor_id = (int)($_POST['advisor_id'] ?? 0);
+        $advisor_search = trim($_POST['advisor_search'] ?? '');
+        if ($advisor_id <= 0 && !empty($advisor_search)) {
+            $cleanSearch = preg_replace('/^prof\.?\s*/i', '', $advisor_search);
+            foreach ($professors as $p) {
+                if (strcasecmp($p['full_name'], $advisor_search) === 0 ||
+                    strcasecmp($p['full_name'], $cleanSearch) === 0 ||
+                    stripos($p['full_name'], $cleanSearch) !== false ||
+                    stripos($p['full_name'], $advisor_search) !== false) {
+                    $advisor_id = (int)$p['id'];
+                    break;
+                }
+            }
+        }
     } else {
         $advisor_id = (int)$user['id'];
     }
 
-    if (empty($fullname) || empty($school_no) || empty($password) || empty($year_level) || empty($section)) {
+    if (empty($fullname) || empty($password) || empty($year_level) || empty($section)) {
         $error_message = 'Please fill in all required fields.';
     } elseif ($user['role'] === 'Admin' && $advisor_id <= 0) {
         $error_message = 'Please select an assigned professor for this student.';
     } else {
-        // Check if student_no already exists
-        $chk = $conn->prepare("SELECT id FROM tbl_students WHERE student_no = ? LIMIT 1");
-        $chk->bind_param('s', $school_no);
-        $chk->execute();
-        if ($chk->get_result()->fetch_assoc()) {
-            $error_message = "Student number '{$school_no}' is already registered.";
-        } else {
-            $password_hash = password_hash($password, PASSWORD_DEFAULT);
-            $stmt = $conn->prepare("INSERT INTO tbl_students (student_no, full_name, year_level, section, gender, password_hash, advisor_id, professor_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
-            $stmt->bind_param("ssssssii", $school_no, $fullname, $year_level, $section, $gender, $password_hash, $advisor_id, $advisor_id);
+        // Enforce maximum capacity limit of 40 students per section
+        $secCheck = $conn->prepare("SELECT COUNT(*) as cnt FROM tbl_students WHERE section = ?");
+        $secCheck->bind_param('s', $section);
+        $secCheck->execute();
+        $current_sec_count = (int)($secCheck->get_result()->fetch_assoc()['cnt'] ?? 0);
 
-            if ($stmt->execute()) {
+        if ($current_sec_count >= $max_capacity) {
+            $error_message = "Section '{$section}' is currently full ({$current_sec_count}/{$max_capacity}). Please select another section.";
+            $section_counts = get_section_counts($conn, $available_sections);
+        } else {
+            // Always re-generate inside a transaction (locked) — never trust the form value
+            $conn->begin_transaction();
+            try {
+                $school_no = generate_next_student_no($conn, '26');
+                $password_hash = password_hash($password, PASSWORD_DEFAULT);
+                $stmt = $conn->prepare("INSERT INTO tbl_students (student_no, full_name, year_level, section, gender, password_hash, advisor_id, professor_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+                $stmt->bind_param("ssssssii", $school_no, $fullname, $year_level, $section, $gender, $password_hash, $advisor_id, $advisor_id);
+                $stmt->execute();
+                $conn->commit();
                 redirect_to("students.php?msg=added");
-            } else {
-                $error_message = 'Error adding student: ' . $conn->error;
+            } catch (Exception $e) {
+                $conn->rollback();
+                $error_message = 'Error adding student: ' . $e->getMessage();
             }
+            // Refresh preview number after error
+            $next_student_no = peek_next_student_no($conn, '26');
         }
     }
 }
@@ -179,6 +227,84 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             padding-right: 40px;
         }
 
+        .prof-combobox-wrapper {
+            position: relative;
+            width: 100%;
+        }
+
+        .prof-dropdown {
+            position: absolute;
+            top: calc(100% + 4px);
+            left: 0;
+            right: 0;
+            background: #ffffff;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+            z-index: 100;
+            overflow: hidden;
+        }
+
+        .prof-list {
+            max-height: 126px; /* Exactly 3 items of 42px each */
+            overflow-y: auto;
+            overscroll-behavior: contain;
+        }
+
+        .prof-list::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .prof-list::-webkit-scrollbar-track {
+            background: #f8fafc;
+        }
+
+        .prof-list::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
+        }
+
+        .prof-list::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+        .prof-item {
+            height: 42px;
+            padding: 0 14px;
+            display: flex;
+            align-items: center;
+            font-size: 14px;
+            color: #1e293b;
+            cursor: pointer;
+            transition: background-color 0.15s ease, color 0.15s ease;
+            border-bottom: 1px solid #f1f5f9;
+            box-sizing: border-box;
+        }
+
+        .prof-item:last-child {
+            border-bottom: none;
+        }
+
+        .prof-item:hover,
+        .prof-item.selected,
+        .prof-item.highlighted {
+            background-color: #eff6ff;
+            color: #1e3a8a;
+            font-weight: 600;
+        }
+
+        .prof-no-match {
+            height: 42px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 13px;
+            color: #94a3b8;
+            font-style: italic;
+            background: #f8fafc;
+            box-sizing: border-box;
+        }
+
         .btn-container {
             display: flex;
             gap: 12px;
@@ -240,8 +366,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
 
             <div class="form-group">
-                <label for="school_no">Student ID / Student Number</label>
-                <input type="text" id="school_no" name="school_no" class="form-control" placeholder="e.g. 2024-00123" required value="<?= h($_POST['school_no'] ?? '') ?>">
+                <label for="school_no">Student ID / Student Number <span style="font-size: 11px; font-weight: 400; color: #64748b;">(Auto-generated)</span></label>
+                <input type="text" id="school_no" name="school_no" class="form-control" readonly
+                    value="<?= h($next_student_no) ?>"
+                    style="background-color: #f1f5f9; color: #475569; cursor: not-allowed; font-weight: 600; letter-spacing: 0.04em;"
+                    title="This number is automatically assigned by the system">
             </div>
 
             <div class="form-group">
@@ -273,11 +402,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <label for="section">Section (5 Sections Available)</label>
                 <select id="section" name="section" class="form-control" required>
                     <option value="" disabled <?= empty($_POST['section']) ? 'selected' : '' ?>>Select Section</option>
-                    <option value="BSIT 1" <?= (($_POST['section'] ?? '') === 'BSIT 1') ? 'selected' : '' ?>>BSIT 1</option>
-                    <option value="BSIT 2" <?= (($_POST['section'] ?? '') === 'BSIT 2') ? 'selected' : '' ?>>BSIT 2</option>
-                    <option value="BSIT 3" <?= (($_POST['section'] ?? '') === 'BSIT 3') ? 'selected' : '' ?>>BSIT 3</option>
-                    <option value="BSIT 4" <?= (($_POST['section'] ?? '') === 'BSIT 4') ? 'selected' : '' ?>>BSIT 4</option>
-                    <option value="BSIT 5" <?= (($_POST['section'] ?? '') === 'BSIT 5') ? 'selected' : '' ?>>BSIT 5</option>
+                    <?php foreach ($available_sections as $sec): 
+                        $cnt = $section_counts[$sec] ?? 0;
+                        $isFull = ($cnt >= $max_capacity);
+                        $label = $sec . ' (' . $cnt . '/' . $max_capacity . ($isFull ? ' - FULL' : '') . ')';
+                    ?>
+                        <option value="<?= h($sec) ?>" <?= $isFull ? 'disabled style="color: #94a3b8; background-color: #f8fafc;"' : '' ?> <?= ((($_POST['section'] ?? '') === $sec) && !$isFull) ? 'selected' : '' ?>>
+                            <?= h($label) ?>
+                        </option>
+                    <?php endforeach; ?>
                 </select>
             </div>
 
@@ -292,16 +425,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             <!-- PROFESSOR ASSIGNMENT -->
             <div class="form-group">
-                <label for="advisor_id">Assigned Professor <span style="color: #ef4444;">*</span></label>
+                <label for="advisor_search">Assigned Professor <span style="color: #ef4444;">*</span></label>
                 <?php if ($user['role'] === 'Admin'): ?>
-                    <select id="advisor_id" name="advisor_id" class="form-control" required>
-                        <option value="" disabled <?= empty($_POST['advisor_id']) ? 'selected' : '' ?>>-- Select Professor --</option>
-                        <?php foreach ($professors as $p): ?>
-                            <option value="<?= (int)$p['id'] ?>" <?= ((int)($_POST['advisor_id'] ?? 0) === (int)$p['id']) ? 'selected' : '' ?>>
-                                <?= h($p['full_name']) ?> (<?= h($p['username']) ?>)
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
+                    <?php
+                    $selected_advisor_id = (int)($_POST['advisor_id'] ?? 0);
+                    $selected_advisor_name = trim($_POST['advisor_search'] ?? '');
+                    if ($selected_advisor_id > 0 && empty($selected_advisor_name)) {
+                        foreach ($professors as $p) {
+                            if ((int)$p['id'] === $selected_advisor_id) {
+                                $selected_advisor_name = $p['full_name'];
+                                break;
+                            }
+                        }
+                    }
+                    ?>
+                    <div class="prof-combobox-wrapper" id="profCombobox">
+                        <input type="hidden" name="advisor_id" id="advisor_id" value="<?= $selected_advisor_id > 0 ? $selected_advisor_id : '' ?>">
+                        <input 
+                            type="text" 
+                            id="advisor_search" 
+                            name="advisor_search" 
+                            class="form-control" 
+                            placeholder="Type or select a professor name..." 
+                            autocomplete="off" 
+                            required 
+                            value="<?= h($selected_advisor_name) ?>"
+                        >
+                        <div id="profDropdown" class="prof-dropdown" style="display: none;">
+                            <div id="profList" class="prof-list"></div>
+                            <div id="profNoMatch" class="prof-no-match" style="display: none;">No professor found</div>
+                        </div>
+                    </div>
                 <?php else: ?>
                     <input type="hidden" name="advisor_id" value="<?= (int)$user['id'] ?>">
                     <input type="text" class="form-control" value="<?= h($user['full_name']) ?> (You)" readonly style="background: #f1f5f9; cursor: not-allowed;">
@@ -331,6 +485,198 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             btn.setAttribute('aria-label', isPassword ? 'Hide password' : 'Show password');
             btn.setAttribute('title', isPassword ? 'Hide password' : 'Show password');
         }
+
+        // Searchable Professor Combobox with 3-row scrollable dropdown
+        (function() {
+            const PROFESSORS = <?= json_encode($professors, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?> || [];
+            const combobox = document.getElementById('profCombobox');
+            const searchInput = document.getElementById('advisor_search');
+            const hiddenIdInput = document.getElementById('advisor_id');
+            const dropdown = document.getElementById('profDropdown');
+            const listContainer = document.getElementById('profList');
+            const noMatch = document.getElementById('profNoMatch');
+
+            if (!searchInput || !dropdown || !listContainer) return;
+
+            let highlightedIndex = -1;
+            let currentMatches = [];
+
+            function cleanQuery(str) {
+                return str.toLowerCase().replace(/^prof\.?\s*/i, '').trim();
+            }
+
+            function filterAndRankProfessors(query) {
+                const rawQ = query.toLowerCase().trim();
+                const q = cleanQuery(rawQ);
+
+                if (!rawQ) {
+                    return PROFESSORS.map(p => ({ ...p, score: 0 }));
+                }
+
+                const results = [];
+                for (let i = 0; i < PROFESSORS.length; i++) {
+                    const prof = PROFESSORS[i];
+                    const name = prof.full_name.toLowerCase();
+                    const username = (prof.username || '').toLowerCase();
+
+                    if (name === rawQ || name === q) {
+                        results.push({ ...prof, score: 100 });
+                    } else if (name.startsWith(rawQ) || name.startsWith(q)) {
+                        results.push({ ...prof, score: 80 });
+                    } else if (name.includes(rawQ) || name.includes(q)) {
+                        results.push({ ...prof, score: 60 });
+                    } else if (username && (username.startsWith(q) || username.includes(q))) {
+                        results.push({ ...prof, score: 40 });
+                    } else {
+                        const parts = name.split(/\s+/);
+                        const matchPart = parts.some(p => p.startsWith(q) || p.includes(q));
+                        if (matchPart) {
+                            results.push({ ...prof, score: 50 });
+                        }
+                    }
+                }
+
+                // Move matching professors automatically to the top
+                results.sort((a, b) => {
+                    if (b.score !== a.score) return b.score - a.score;
+                    return a.full_name.localeCompare(b.full_name);
+                });
+
+                return results;
+            }
+
+            function renderDropdown(query = '') {
+                currentMatches = filterAndRankProfessors(query);
+                listContainer.innerHTML = '';
+                highlightedIndex = -1;
+
+                if (currentMatches.length === 0) {
+                    listContainer.style.display = 'none';
+                    noMatch.style.display = 'flex';
+                } else {
+                    noMatch.style.display = 'none';
+                    listContainer.style.display = 'block';
+
+                    currentMatches.forEach((prof, idx) => {
+                        const row = document.createElement('div');
+                        row.className = 'prof-item';
+                        row.dataset.id = prof.id;
+                        row.dataset.name = prof.full_name;
+                        row.dataset.index = idx;
+                        row.textContent = prof.full_name;
+
+                        if (String(hiddenIdInput.value) === String(prof.id) || searchInput.value.trim().toLowerCase() === prof.full_name.toLowerCase()) {
+                            row.classList.add('selected');
+                        }
+
+                        row.addEventListener('mousedown', (e) => {
+                            e.preventDefault(); // Prevent input blur before click is handled
+                            selectProfessor(prof);
+                        });
+
+                        listContainer.appendChild(row);
+                    });
+                }
+
+                dropdown.style.display = 'block';
+            }
+
+            function selectProfessor(prof) {
+                searchInput.value = prof.full_name;
+                hiddenIdInput.value = prof.id;
+                closeDropdown();
+            }
+
+            function syncHiddenId() {
+                const currentVal = searchInput.value.trim().toLowerCase();
+                const cleanVal = cleanQuery(currentVal);
+                const exact = PROFESSORS.find(p => p.full_name.toLowerCase() === currentVal || p.full_name.toLowerCase() === cleanVal);
+                if (exact) {
+                    hiddenIdInput.value = exact.id;
+                } else {
+                    const matches = filterAndRankProfessors(searchInput.value);
+                    if (matches.length === 1) {
+                        hiddenIdInput.value = matches[0].id;
+                    } else if (matches.length > 0 && matches[0].score >= 60) {
+                        hiddenIdInput.value = matches[0].id;
+                    } else {
+                        hiddenIdInput.value = '';
+                    }
+                }
+            }
+
+            function openDropdown() {
+                renderDropdown(searchInput.value);
+            }
+
+            function closeDropdown() {
+                dropdown.style.display = 'none';
+                highlightedIndex = -1;
+            }
+
+            // Real-time search/filtering as the user types
+            searchInput.addEventListener('input', () => {
+                renderDropdown(searchInput.value);
+                syncHiddenId();
+            });
+
+            // Focus and click open dropdown
+            searchInput.addEventListener('focus', () => {
+                openDropdown();
+            });
+
+            searchInput.addEventListener('click', () => {
+                openDropdown();
+            });
+
+            // Keyboard navigation
+            searchInput.addEventListener('keydown', (e) => {
+                const items = listContainer.querySelectorAll('.prof-item');
+                if (dropdown.style.display === 'none' && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+                    openDropdown();
+                    e.preventDefault();
+                    return;
+                }
+
+                if (items.length === 0) return;
+
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    highlightedIndex = (highlightedIndex + 1) % items.length;
+                    updateHighlight(items);
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    highlightedIndex = (highlightedIndex - 1 + items.length) % items.length;
+                    updateHighlight(items);
+                } else if (e.key === 'Enter') {
+                    if (highlightedIndex >= 0 && highlightedIndex < currentMatches.length) {
+                        e.preventDefault();
+                        selectProfessor(currentMatches[highlightedIndex]);
+                    }
+                } else if (e.key === 'Escape') {
+                    closeDropdown();
+                }
+            });
+
+            function updateHighlight(items) {
+                items.forEach((it, idx) => {
+                    if (idx === highlightedIndex) {
+                        it.classList.add('highlighted');
+                        it.scrollIntoView({ block: 'nearest' });
+                    } else {
+                        it.classList.remove('highlighted');
+                    }
+                });
+            }
+
+            // Outside click closes dropdown
+            document.addEventListener('click', (e) => {
+                if (combobox && !combobox.contains(e.target)) {
+                    closeDropdown();
+                    syncHiddenId();
+                }
+            });
+        })();
     </script>
 </body>
 

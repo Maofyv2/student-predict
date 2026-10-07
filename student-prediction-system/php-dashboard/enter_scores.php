@@ -88,7 +88,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     }
 
     if (!$saveScores && !$runPredict) {
-        $errors[] = 'Please select Save Scores or Generate Prediction.';
+        $errors[] = 'Please click Save Scores.';
     }
 
     // Verify student ownership
@@ -155,13 +155,34 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             $components['lab_score'] = (float)$_POST['lab_score'];
         }
 
-        // Socio-demographic inputs
-        $internetAccess    = (int)($_POST['internet_access'] ?? 1);
-        $digitalLiteracy   = (int)($_POST['digital_literacy'] ?? 3);
-        $householdIncome   = (float)($_POST['household_income'] ?? ($stu['household_income'] ?? 0));
-        $parentalEducation = (int)($_POST['parental_education'] ?? ($stu['parental_education'] ?? 3));
-        $studyHours        = (float)($_POST['study_hours'] ?? 4);
-        $workingStudent    = (int)($_POST['working_student'] ?? ($stu['working_student'] ?? 0));
+        // Socio-demographic inputs (use existing student/survey data or defaults)
+        $internetAccess    = 1;
+        $digitalLiteracy   = 3;
+        $householdIncome   = (float)($stu['household_income'] ?? 0);
+        $parentalEducation = (int)($stu['parental_education'] ?? 3);
+        $studyHours        = 4.0;
+        $workingStudent    = (int)($stu['working_student'] ?? 0);
+
+        if ($studentId > 0) {
+            $svChk = db()->prepare("SELECT internet_access, digital_literacy, study_hours FROM tbl_surveys WHERE student_id = ? ORDER BY id DESC LIMIT 1");
+            if ($svChk) {
+                $svChk->bind_param('i', $studentId);
+                $svChk->execute();
+                $svRow = $svChk->get_result()->fetch_assoc();
+                if ($svRow) {
+                    if (isset($svRow['internet_access']))  $internetAccess  = (int)$svRow['internet_access'];
+                    if (isset($svRow['digital_literacy'])) $digitalLiteracy = (int)$svRow['digital_literacy'];
+                    if (isset($svRow['study_hours']))      $studyHours      = (float)$svRow['study_hours'];
+                }
+            }
+        }
+
+        if (isset($_POST['internet_access']))    $internetAccess    = (int)$_POST['internet_access'];
+        if (isset($_POST['digital_literacy']))   $digitalLiteracy   = (int)$_POST['digital_literacy'];
+        if (isset($_POST['household_income']))   $householdIncome   = (float)$_POST['household_income'];
+        if (isset($_POST['parental_education'])) $parentalEducation = (int)$_POST['parental_education'];
+        if (isset($_POST['study_hours']))        $studyHours        = (float)$_POST['study_hours'];
+        if (isset($_POST['working_student']))    $workingStudent    = (int)$_POST['working_student'];
     }
 
     // Process Save Scores
@@ -617,9 +638,6 @@ button:disabled {
                 <span style="color:var(--risk-text);font-weight:600;"> — Missing: <?= h(implode(', ', $success['missing'])) ?></span>
             <?php endif; ?>
         </div>
-        <div style="margin-top:6px;font-size:.9rem;">
-            👉 You may now click <strong>Generate Prediction</strong> below to classify student performance.
-        </div>
     </div>
 <?php endif; ?>
 
@@ -885,72 +903,12 @@ button:disabled {
         </div>
     </div>
 
-    <!-- Step 3: Socio-demographic Profile -->
-    <div id="socio-panel" class="panel form-panel" style="display:none;margin-bottom:16px;">
-        <div class="panel-title"><h2>Step 3 — Household &amp; Digital Profile</h2></div>
-        <div class="form-grid">
-            <label>
-                <span>Household Income (PHP)</span>
-                <input type="number" step="0.01" min="0" max="500000"
-                       id="household_income" name="household_income"
-                       value="<?= h($_POST['household_income'] ?? ($studentMap[$selStudentId]['household_income'] ?? '')) ?>">
-            </label>
-            <label>
-                <span>Parental Education</span>
-                <select id="parental_education" name="parental_education">
-                    <?php foreach ([1=>'Elementary', 2=>'High School', 3=>'College', 4=>'Postgraduate'] as $v => $l): ?>
-                        <option value="<?= $v ?>"
-                            <?= (($_POST['parental_education'] ?? ($studentMap[$selStudentId]['parental_education'] ?? 3)) == $v) ? 'selected' : '' ?>>
-                            <?= h($l) ?>
-                        </option>
-                    <?php endforeach; ?>
-                </select>
-            </label>
-            <label>
-                <span>Digital Literacy (1–5)</span>
-                <input type="number" step="1" min="1" max="5"
-                       id="digital_literacy" name="digital_literacy"
-                       value="<?= h($_POST['digital_literacy'] ?? 3) ?>">
-            </label>
-            <label>
-                <span>Study Hours / Week</span>
-                <input type="number" step="0.1" min="0" max="80"
-                       id="study_hours" name="study_hours"
-                       value="<?= h($_POST['study_hours'] ?? '') ?>">
-            </label>
-            <label>
-                <span>Internet Access</span>
-                <select id="internet_access" name="internet_access">
-                    <option value="1" <?= (($_POST['internet_access'] ?? '1') === '1') ? 'selected' : '' ?>>Yes</option>
-                    <option value="0" <?= (($_POST['internet_access'] ?? '') === '0') ? 'selected' : '' ?>>No</option>
-                </select>
-            </label>
-            <label>
-                <span>Working Student</span>
-                <select id="working_student" name="working_student">
-                    <option value="0" <?= ((($_POST['working_student'] ?? $studentMap[$selStudentId]['working_student'] ?? 0) == 0)) ? 'selected' : '' ?>>No</option>
-                    <option value="1" <?= ((($_POST['working_student'] ?? $studentMap[$selStudentId]['working_student'] ?? 0) == 1)) ? 'selected' : '' ?>>Yes</option>
-                </select>
-            </label>
-        </div>
-    </div>
-
     <!-- Action Buttons -->
     <div id="action-panel" class="form-actions" style="display:none;gap:12px;align-items:center;flex-wrap:wrap;">
-        <button type="submit" name="save_scores" value="1" class="button button-secondary" id="btn-save"
+        <button type="submit" name="save_scores" value="1" class="button button-primary" id="btn-save"
                 onclick="document.getElementById('form_action').value='save_scores'">
             Save Scores
         </button>
-
-        <button type="submit" name="run_prediction" value="1" class="button button-primary" id="btn-predict"
-                onclick="document.getElementById('form_action').value='run_prediction'"
-                <?= $scoresSaved ? '' : 'disabled' ?>>
-            Generate Prediction
-        </button>
-
-        <span id="predict-hint" style="font-size:.85rem;color:var(--muted);<?= $scoresSaved ? 'display:none;' : '' ?>">
-            ⚠️ Save scores first before generating a prediction.
-        </span>
     </div>
 </form>
 
@@ -1014,7 +972,6 @@ function onPeriodChange() {
 
 function hideAll() {
     document.getElementById('scores-panel').style.display      = 'none';
-    document.getElementById('socio-panel').style.display       = 'none';
     document.getElementById('prev-grades-panel').style.display = 'none';
     document.getElementById('action-panel').style.display      = 'none';
 }
@@ -1023,20 +980,8 @@ function showPanels() {
     const prev = PERIOD_PREV[currentPeriod] || [];
     document.getElementById('prev-grades-panel').style.display = prev.length ? '' : 'none';
     document.getElementById('scores-panel').style.display      = '';
-    document.getElementById('socio-panel').style.display       = '';
     document.getElementById('action-panel').style.display      = 'flex';
     document.getElementById('period-label').textContent        = '— ' + currentPeriod;
-
-    // Determine prediction button state
-    const predictBtn = document.getElementById('btn-predict');
-    const hint = document.getElementById('predict-hint');
-    if (SCORES_SAVED && currentPeriod === <?= json_encode($selPeriod) ?>) {
-        predictBtn.disabled = false;
-        hint.style.display = 'none';
-    } else {
-        predictBtn.disabled = true;
-        hint.style.display = '';
-    }
 }
 
 function buildScoreRows() {
@@ -1115,11 +1060,6 @@ onStudentChange();
 document.getElementById('scores-form').addEventListener('submit', function(e) {
     const submitBtn = e.submitter;
     if (submitBtn) {
-        if (submitBtn.id === 'btn-predict' && submitBtn.disabled) {
-            e.preventDefault();
-            alert('Please save the scores first before generating a prediction.');
-            return;
-        }
         // Defer disabling so browser has packaged name & value in the POST request
         setTimeout(() => {
             submitBtn.disabled = true;

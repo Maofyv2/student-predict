@@ -526,6 +526,74 @@ function redirect_to($path) {
     exit;
 }
 
+/**
+ * Generate the next student number in format YY-NNNN (e.g. 26-0001).
+ * Thread-safe: locks the table during read, so concurrent requests never
+ * get the same sequence number. Handles overflow past 9999 automatically.
+ *
+ * @param  mysqli $conn  Active database connection
+ * @param  string $prefix  Two-digit year prefix (default "26")
+ * @return string  e.g. "26-0001"
+ */
+function generate_next_student_no(mysqli $conn, string $prefix = '26'): string {
+    // Lock the table to prevent race conditions
+    $conn->query("LOCK TABLES tbl_students WRITE");
+
+    try {
+        // Fetch the highest existing number for this prefix
+        $stmt = $conn->prepare(
+            "SELECT student_no FROM tbl_students
+             WHERE student_no LIKE ?
+             ORDER BY id DESC
+             LIMIT 1"
+        );
+        $pattern = $prefix . '-%';
+        $stmt->bind_param('s', $pattern);
+        $stmt->execute();
+        $row = $stmt->get_result()->fetch_assoc();
+
+        if ($row && preg_match('/^' . preg_quote($prefix, '/') . '-(\d+)$/', $row['student_no'], $m)) {
+            $next = (int)$m[1] + 1;
+        } else {
+            $next = 1;
+        }
+
+        // Pad to at least 4 digits; extends automatically past 9999
+        $padLen = max(4, strlen((string)$next));
+        $candidate = $prefix . '-' . str_pad((string)$next, $padLen, '0', STR_PAD_LEFT);
+    } finally {
+        $conn->query("UNLOCK TABLES");
+    }
+
+    return $candidate;
+}
+
+/**
+ * Peek at the next student number without locking (for display only).
+ * Always re-generate server-side on submit; never trust the displayed value.
+ */
+function peek_next_student_no(mysqli $conn, string $prefix = '26'): string {
+    $stmt = $conn->prepare(
+        "SELECT student_no FROM tbl_students
+         WHERE student_no LIKE ?
+         ORDER BY id DESC
+         LIMIT 1"
+    );
+    $pattern = $prefix . '-%';
+    $stmt->bind_param('s', $pattern);
+    $stmt->execute();
+    $row = $stmt->get_result()->fetch_assoc();
+
+    if ($row && preg_match('/^' . preg_quote($prefix, '/') . '-(\d+)$/', $row['student_no'], $m)) {
+        $next = (int)$m[1] + 1;
+    } else {
+        $next = 1;
+    }
+
+    $padLen = max(4, strlen((string)$next));
+    return $prefix . '-' . str_pad((string)$next, $padLen, '0', STR_PAD_LEFT);
+}
+
 function api_request_local(string $method, string $path, ?array $payload = null): array {
     $localUrl = 'http://127.0.0.1:5000' . $path;
     $ch = curl_init($localUrl);

@@ -111,13 +111,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $components['attendance_rate']  = nullable_numeric('attendance_rate',  0, 100, $errors);
     $components['lab_score']        = nullable_numeric('lab_score',        0, 100, $errors);
 
-    /* -------- Socio-demographic fields -------- */
-    $internetAccess    = (int)($_POST['internet_access']  ?? 1);
-    $digitalLiteracy   = required_numeric('digital_literacy',  1, 5,      $errors);
-    $householdIncome   = required_numeric('household_income',  0, 500000, $errors);
-    $parentalEducation = required_numeric('parental_education',1, 4,      $errors);
-    $studyHours        = required_numeric('study_hours',       0, 80,     $errors);
-    $workingStudent    = (int)($_POST['working_student'] ?? 0);
+    /* -------- Socio-demographic fields (loaded from student record/surveys or defaults) -------- */
+    $internetAccess    = 1;
+    $digitalLiteracy   = 3;
+    $householdIncome   = 0.0;
+    $parentalEducation = 3;
+    $studyHours        = 5.0;
+    $workingStudent    = 0;
+
+    if (!empty($studentNo)) {
+        $stInfo = db()->prepare("
+            SELECT s.household_income, s.parental_education, s.working_student,
+                   sv.internet_access, sv.digital_literacy, sv.study_hours
+            FROM tbl_students s
+            LEFT JOIN tbl_surveys sv ON sv.student_id = s.id
+            WHERE s.student_no = ?
+            ORDER BY sv.id DESC LIMIT 1
+        ");
+        if ($stInfo) {
+            $stInfo->bind_param('s', $studentNo);
+            $stInfo->execute();
+            $stRow = $stInfo->get_result()->fetch_assoc();
+            if ($stRow) {
+                if (isset($stRow['household_income']))   $householdIncome   = (float)$stRow['household_income'];
+                if (isset($stRow['parental_education'])) $parentalEducation = (int)$stRow['parental_education'];
+                if (isset($stRow['working_student']))    $workingStudent    = (int)$stRow['working_student'];
+                if (isset($stRow['internet_access']))    $internetAccess    = (int)$stRow['internet_access'];
+                if (isset($stRow['digital_literacy']))   $digitalLiteracy   = (int)$stRow['digital_literacy'];
+                if (isset($stRow['study_hours']))        $studyHours        = (float)$stRow['study_hours'];
+            }
+        }
+    }
+
+    if (isset($_POST['internet_access']))    $internetAccess    = (int)$_POST['internet_access'];
+    if (isset($_POST['digital_literacy']))   $digitalLiteracy   = (int)$_POST['digital_literacy'];
+    if (isset($_POST['household_income']))   $householdIncome   = (float)$_POST['household_income'];
+    if (isset($_POST['parental_education'])) $parentalEducation = (int)$_POST['parental_education'];
+    if (isset($_POST['study_hours']))        $studyHours        = (float)$_POST['study_hours'];
+    if (isset($_POST['working_student']))    $workingStudent    = (int)$_POST['working_student'];
 
     /* -------- Compute weighted grade -------- */
     if (!$errors && $gradingPeriod) {
@@ -613,17 +644,7 @@ page_header('Progressive Prediction');
                 </div>
                 <?php endforeach; ?>
             </div>
-            <?php if ($gwaVal !== null): ?>
-            <div style="margin-top:12px;background:linear-gradient(135deg,#1e3a8a,#3b82f6);color:#fff;border-radius:10px;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
-                <div>
-                    <div style="font-size:.75rem;text-transform:uppercase;letter-spacing:.05em;opacity:.85;">General Weighted Average (GWA)</div>
-                    <div style="font-size:2rem;font-weight:800;line-height:1.1;margin-top:2px;"><?= number_format($gwaVal, 2) ?>%</div>
-                </div>
-                <div style="font-size:.8rem;opacity:.8;">
-                    Based on <?= count($pgGrades) ?> grading period<?= count($pgGrades) !== 1 ? 's' : '' ?>
-                </div>
-            </div>
-            <?php endif; ?>
+
         </div>
         <?php endif; ?>
     </section>
@@ -788,52 +809,7 @@ page_header('Progressive Prediction');
 
     </div>
 
-    <!-- Section 4: Socio-Demographic -->
-    <div class="form-section" id="socio-section" style="display:none;">
-        <h2>Household &amp; Digital Profile</h2>
-        <div class="form-grid">
-            <label>
-                <span>Household Income (PHP)</span>
-                <input type="number" step="0.01" min="0" max="500000"
-                       id="household_income" name="household_income"
-                       value="<?= h(old_value('household_income')) ?>" required>
-            </label>
-            <label>
-                <span>Parental Education</span>
-                <select id="parental_education" name="parental_education" required>
-                    <?php foreach ([1=>'Elementary',2=>'High School',3=>'College',4=>'Postgraduate'] as $v=>$l): ?>
-                        <option value="<?= $v ?>" <?= old_value('parental_education','3') == $v ? 'selected' : '' ?>><?= h($l) ?></option>
-                    <?php endforeach; ?>
-                </select>
-            </label>
-            <label>
-                <span>Digital Literacy (1–5)</span>
-                <input type="number" step="1" min="1" max="5"
-                       id="digital_literacy" name="digital_literacy"
-                       value="<?= h(old_value('digital_literacy','3')) ?>" required>
-            </label>
-            <label>
-                <span>Study Hours / Week</span>
-                <input type="number" step="0.1" min="0" max="80"
-                       id="study_hours" name="study_hours"
-                       value="<?= h(old_value('study_hours')) ?>" required>
-            </label>
-            <label>
-                <span>Internet Access</span>
-                <select id="internet_access" name="internet_access">
-                    <option value="1" <?= old_value('internet_access','1') === '1' ? 'selected' : '' ?>>Yes</option>
-                    <option value="0" <?= old_value('internet_access') === '0' ? 'selected' : '' ?>>No</option>
-                </select>
-            </label>
-            <label>
-                <span>Working Student</span>
-                <select id="working_student" name="working_student">
-                    <option value="0" <?= old_value('working_student','0') === '0' ? 'selected' : '' ?>>No</option>
-                    <option value="1" <?= old_value('working_student') === '1' ? 'selected' : '' ?>>Yes</option>
-                </select>
-            </label>
-        </div>
-    </div>
+
 
     <div class="form-actions" id="submit-actions" style="display:none;">
         <button class="button button-primary" type="submit" id="submit-btn">
@@ -1027,7 +1003,6 @@ function onContextChange() {
 function hideAllSections() {
     document.getElementById('prev-grades-section').style.display = 'none';
     document.getElementById('components-section').style.display  = 'none';
-    document.getElementById('socio-section').style.display       = 'none';
     document.getElementById('submit-actions').style.display      = 'none';
 }
 
@@ -1035,7 +1010,6 @@ function showSections() {
     const prev = PERIOD_PREV[currentPeriod] || [];
     document.getElementById('prev-grades-section').style.display = prev.length ? '' : 'none';
     document.getElementById('components-section').style.display  = '';
-    document.getElementById('socio-section').style.display       = '';
     document.getElementById('submit-actions').style.display      = '';
     document.getElementById('period-label-h').textContent        = '— ' + currentPeriod;
 }
