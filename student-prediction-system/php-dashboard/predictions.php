@@ -525,6 +525,60 @@ page_header('Progressive Prediction');
 .psg-card .pred-grade { font-size: .88rem; color: var(--muted); }
 .psg-card .na-tag { font-size: .85rem; color: var(--muted); font-style: italic; }
 
+/* Forecast result: restrained, information-first layout */
+.forecast-card { padding: 0 !important; overflow: hidden; border-radius: 12px !important; box-shadow: var(--shadow-sm); }
+.forecast-card__header { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; padding: 22px 24px 18px; border-bottom: 1px solid var(--line); }
+.forecast-card__kicker, .forecast-section-label { margin: 0; font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.forecast-card__title { margin: 5px 0 0; font-size: 1.35rem; line-height: 1.2; letter-spacing: -.02em; color: var(--text); }
+.forecast-status { display: inline-flex; align-items: center; gap: 7px; flex-shrink: 0; padding: 7px 10px; border: 1px solid var(--status-border); border-radius: var(--radius-full); color: var(--status-text); background: var(--status-bg); font-size: .78rem; font-weight: 700; }
+.forecast-status::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--status-dot); }
+.forecast-card__body { padding: 20px 24px 24px; }
+.forecast-periods { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 10px; }
+.forecast-period { position: relative; min-height: 120px; padding: 14px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+.forecast-period.is-forecast { border-color: var(--primary-border); background: #f8fbff; }
+.forecast-period.is-empty { background: var(--surface-subtle); }
+.forecast-period__name { font-size: .77rem; font-weight: 700; color: var(--text-secondary); }
+.forecast-period__value { margin-top: 12px; font-size: 1.5rem; line-height: 1; font-weight: 750; letter-spacing: -.035em; color: var(--text); }
+.forecast-period.is-empty .forecast-period__value { color: var(--muted-light); font-weight: 500; }
+.forecast-period__note { margin-top: 9px; font-size: .74rem; color: var(--muted); }
+.forecast-period__note.is-delta { font-weight: 700; color: var(--delta-color); }
+.forecast-details { display: grid; grid-template-columns: .75fr .75fr .75fr 1.75fr; gap: 0; margin-top: 20px; padding: 15px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.forecast-detail { min-width: 0; padding: 0 15px; border-left: 1px solid var(--line); }
+.forecast-detail:first-child { padding-left: 0; border-left: 0; }
+.forecast-detail__label { display: block; font-size: .7rem; font-weight: 700; color: var(--muted); letter-spacing: .05em; text-transform: uppercase; }
+.forecast-detail__value { display: block; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-secondary); font-size: .82rem; font-weight: 600; }
+.forecast-support { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(220px, .9fr); gap: 14px; margin-top: 18px; }
+.forecast-advice { padding: 15px 16px; border-left: 3px solid var(--primary); background: var(--primary-subtle); }
+.forecast-advice p { margin: 7px 0 0; color: var(--text-secondary); font-size: .87rem; line-height: 1.55; }
+.forecast-risks { padding: 15px 16px; border: 1px solid var(--line); background: var(--surface-subtle); }
+.forecast-advice + .forecast-risks { margin-top: 14px; }
+.forecast-risk-list { display: flex; flex-direction: column; gap: 8px; margin-top: 9px; }
+.forecast-risk { position: relative; padding-left: 14px; color: var(--text-secondary); font-size: .8rem; line-height: 1.35; }
+.forecast-risk::before { content: ''; position: absolute; left: 0; top: .5em; width: 5px; height: 5px; border-radius: 50%; background: #d97706; }
+
+/* Forecast setup: concise guidance instead of decorative system panels */
+.forecast-setup { margin-bottom: 22px; padding-bottom: 18px; border-bottom: 1px solid var(--line); }
+.forecast-setup__title { margin: 0; color: var(--text); font-size: 1.05rem; line-height: 1.3; letter-spacing: -.01em; }
+.forecast-setup__copy { margin: 5px 0 0; max-width: 62ch; color: var(--muted); font-size: .87rem; }
+.forecast-setup__steps { display: flex; gap: 18px; margin: 15px 0 0; color: var(--text-secondary); font-size: .8rem; }
+.forecast-setup__steps span { display: inline-flex; align-items: center; gap: 7px; }
+.forecast-setup__steps b { display: inline-grid; place-items: center; width: 19px; height: 19px; border-radius: 50%; background: var(--surface-subtle); color: var(--muted); font-size: .69rem; }
+.grading-sequence { justify-content: flex-start !important; padding: 0 0 18px !important; background: transparent !important; border: 0 !important; border-bottom: 1px solid var(--line) !important; border-radius: 0 !important; }
+
+@media (max-width: 760px) {
+    .forecast-periods { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .forecast-details { grid-template-columns: repeat(2, 1fr); gap: 14px 0; }
+    .forecast-detail:nth-child(3) { padding-left: 0; border-left: 0; }
+    .forecast-support { grid-template-columns: 1fr; }
+}
+@media (max-width: 460px) {
+    .forecast-card__header, .forecast-card__body { padding-left: 16px; padding-right: 16px; }
+    .forecast-card__header { flex-direction: column; gap: 12px; }
+    .forecast-periods, .forecast-details { grid-template-columns: 1fr; }
+    .forecast-detail { padding: 0; border-left: 0; }
+    .forecast-setup__steps { flex-direction: column; gap: 8px; }
+}
+
 @media (max-width: 760px) {
     .period-summary-grid { grid-template-columns: repeat(2, 1fr); }
 }
@@ -570,111 +624,96 @@ page_header('Progressive Prediction');
     $gwaValR = count($allPeriodGrades) > 0 ? array_sum($allPeriodGrades) / count($allPeriodGrades) : null;
     ?>
 
-    <!-- ── Forecast Result Card ── -->
-    <section class="result-progressive <?= h($statusCls) ?>" id="result-banner" style="border-radius:16px;padding:28px;margin-bottom:20px;border:1.5px solid;box-shadow:0 8px 24px rgba(15,23,42,.07);">
-        <div class="rp-header">
+    <!-- ── Forecast Result Card (Minimalist & Non-Duplicated) ── -->
+    <section class="panel forecast-card" id="result-banner" style="margin-bottom:20px;--status-bg:<?= $statusBadgeBg ?>;--status-text:<?= $statusBadgeColor ?>;--status-border:<?= $statusBadgeBorder ?>;--status-dot:<?= $statusDot ?>;">
+        <div class="forecast-card__header">
             <div>
-                <small style="display:flex;align-items:center;gap:8px;font-size:.82rem;color:var(--muted);margin-bottom:6px;">
-                    <span style="font-weight:700;"><?= h($result['student_name'] ?? $result['student_no'] ?? '') ?></span>
-                    <span>•</span>
-                    <span style="background:var(--primary-subtle,#eff6ff);color:var(--primary,#1e3a8a);padding:2px 10px;border-radius:999px;font-size:.73rem;font-weight:700;border:1px solid #bfdbfe;">
-                        <?= h($sourcePeriod) ?> Actual → <?= h($targetPeriodR ?: 'Next Period') ?> Forecast
-                    </span>
-                </small>
-                <h2 style="margin:0 0 6px;font-size:1.55rem;font-weight:800;color:var(--text);">
-                    Next-Period Forecast
-                    <span style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:3px 8px;border-radius:6px;background:#e0e7ff;color:#4338ca;margin-left:6px;">AI Engine</span>
+                <p class="forecast-card__kicker">
+                    <?= h($result['student_name'] ?? $result['student_no'] ?? '') ?> &bull; <?= h($sourcePeriod) ?> &rarr; <?= h($targetPeriodR ?: 'Next Period') ?> Forecast
+                </p>
+                <h2 class="forecast-card__title">
+                    Performance Forecast
                 </h2>
             </div>
-            <div style="display:flex;align-items:center;gap:10px;">
-                <span style="display:inline-flex;align-items:center;gap:7px;padding:6px 14px;border-radius:999px;font-size:.85rem;font-weight:700;background:<?= $statusBadgeBg ?>;color:<?= $statusBadgeColor ?>;border:1px solid <?= $statusBadgeBorder ?>;">
-                    <span style="width:8px;height:8px;border-radius:999px;background:<?= $statusDot ?>;box-shadow:0 0 6px <?= $statusDot ?>;"></span>
-                    <?= h($result['prediction'] ?? '') ?> Status
-                </span>
-            </div>
+            <span class="forecast-status"><?= h($result['prediction'] ?? '') ?> status</span>
         </div>
 
-        <!-- Stats grid -->
-        <div class="rp-meta-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin:16px 0;">
-            <div style="background:var(--surface-subtle,#f8fafc);border:1px solid var(--line);border-radius:12px;padding:16px;">
-                <small style="display:block;font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:700;margin-bottom:6px;"><?= h($sourcePeriod) ?> Actual Grade</small>
-                <strong style="font-size:1.6rem;font-weight:800;"><?= number_format($gradePct, 2) ?>%</strong>
-                <div style="font-size:.76rem;margin-top:4px;color:var(--muted);">Source period</div>
-            </div>
-            <div style="background:linear-gradient(135deg,#f0fdf4,#eff6ff);border:1px solid #93c5fd;border-radius:12px;padding:16px;box-shadow:0 4px 12px rgba(37,99,235,.08);">
-                <small style="display:block;font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;color:#1e40af;font-weight:700;margin-bottom:6px;"><?= h($targetPeriodR ?: 'Next Period') ?> Forecast Grade</small>
-                <strong style="font-size:1.6rem;font-weight:800;color:#1d4ed8;"><?= number_format($predGradeR, 2) ?>%</strong>
-                <div style="font-size:.76rem;margin-top:4px;">
-                    <?php if ($gradeDeltaR > 0): ?>
-                        <span style="background:#dcfce7;color:#15803d;padding:2px 7px;border-radius:999px;font-weight:700;">▲ +<?= number_format($gradeDeltaR, 2) ?>% Projected</span>
-                    <?php elseif ($gradeDeltaR < 0): ?>
-                        <span style="background:#fee2e2;color:#b91c1c;padding:2px 7px;border-radius:999px;font-weight:700;">▼ <?= number_format($gradeDeltaR, 2) ?>% Projected</span>
-                    <?php else: ?>
-                        <span style="background:#f1f5f9;color:#475569;padding:2px 7px;border-radius:999px;font-weight:700;">● Steady</span>
-                    <?php endif; ?>
-                </div>
-            </div>
-            <div style="background:var(--surface-subtle,#f8fafc);border:1px solid var(--line);border-radius:12px;padding:16px;">
-                <small style="display:block;font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:700;margin-bottom:6px;">Confidence</small>
-                <strong style="font-size:1.6rem;font-weight:800;"><?= $confPct ?>%</strong>
-                <div style="width:100%;height:6px;background:#e2e8f0;border-radius:999px;overflow:hidden;margin-top:8px;">
-                    <div style="height:100%;border-radius:999px;background:linear-gradient(90deg,#3b82f6,#10b981);width:<?= min(100,max(5,$confPct)) ?>%;"></div>
-                </div>
-            </div>
-            <div style="background:var(--surface-subtle,#f8fafc);border:1px solid var(--line);border-radius:12px;padding:16px;">
-                <small style="display:block;font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:700;margin-bottom:6px;">Model Accuracy</small>
-                <strong style="font-size:1.6rem;font-weight:800;"><?= round(($result['accuracy'] ?? 0) * 100, 1) ?>%</strong>
-                <div style="font-size:.76rem;margin-top:4px;color:var(--muted);"><?= h($result['algorithm'] ?? '') ?></div>
-            </div>
-        </div>
-
-        <!-- Period grades timeline -->
-        <?php if (!empty($allPeriodGrades)): ?>
-        <div style="margin-top:20px;">
-            <div style="font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:10px;">Semester Period Progress</div>
-            <div class="period-summary-grid">
+        <!-- Semester Grading Progress (Unified 4 Periods) -->
+        <div class="forecast-card__body">
+            <p class="forecast-section-label">Semester grading progress</p>
+            <div class="forecast-periods">
                 <?php foreach (['Prelim','Midterm','Semi-Final','Final'] as $pg_period): ?>
-                <div class="psg-card" style="<?= $pg_period === $targetPeriodR ? 'background:rgba(245,158,11,.08);border-color:rgba(245,158,11,.4);' : '' ?>">
-                    <div class="period-name"><?= h($pg_period) ?></div>
-                    <?php if (isset($allPeriodGrades[$pg_period])): ?>
-                        <div class="actual-grade"><?= number_format($allPeriodGrades[$pg_period], 2) ?>%</div>
-                        <?php if ($pg_period === $sourcePeriod): ?>
-                            <div class="pred-grade" style="color:var(--blue);font-size:.73rem;font-weight:700;margin-top:3px;"> Latest Actual</div>
-                        <?php endif; ?>
-                    <?php elseif ($pg_period === $targetPeriodR): ?>
-                        <div class="actual-grade" style="color:#d97706;"><?= number_format($predGradeR, 2) ?>%</div>
-                        <div class="pred-grade" style="color:#d97706;font-size:.73rem;font-weight:700;margin-top:3px;"> Forecast</div>
-                    <?php else: ?>
-                        <div class="na-tag">Not yet entered</div>
-                    <?php endif; ?>
-                </div>
+                    <?php
+                    $hasActual = isset($allPeriodGrades[$pg_period]);
+                    $isForecast = ($pg_period === $targetPeriodR);
+                    ?>
+                    <div class="forecast-period<?= $hasActual ? ' is-actual' : ($isForecast ? ' is-forecast' : ' is-empty') ?>">
+                        <div class="forecast-period__name"><?= h($pg_period) ?></div>
+                        <div class="forecast-period__value">
+                            <?php if ($hasActual): ?>
+                                <?= number_format($allPeriodGrades[$pg_period], 2) ?>%
+                            <?php elseif ($isForecast): ?>
+                                <?= number_format($predGradeR, 2) ?>%
+                            <?php else: ?>
+                                <span style="color:var(--muted);font-weight:400;font-size:1.1rem;">—</span>
+                            <?php endif; ?>
+                        </div>
+                        <div class="forecast-period__note<?= $isForecast ? ' is-delta' : '' ?>"<?= $isForecast ? ' style="--delta-color:' . ($gradeDeltaR >= 0 ? '#15803d' : '#b91c1c') . ';"' : '' ?>>
+                            <?php if ($hasActual): ?>
+                                <span style="color:var(--muted);">Recorded Actual</span>
+                            <?php elseif ($isForecast): ?>
+                                <span style="color:<?= $gradeDeltaR >= 0 ? '#16a34a' : '#dc2626' ?>;font-weight:600;">
+                                    Forecast (<?= $gradeDeltaR >= 0 ? '+' : '' ?><?= number_format($gradeDeltaR, 2) ?>%)
+                                </span>
+                            <?php else: ?>
+                                <span style="color:var(--muted);">Not yet entered</span>
+                            <?php endif; ?>
+                        </div>
+                    </div>
                 <?php endforeach; ?>
             </div>
         </div>
-        <?php endif; ?>
 
-        <!-- Recommendation -->
-        <?php if (!empty($result['recommendation'])): ?>
-        <div style="display:flex;align-items:flex-start;gap:14px;background:#f8fafc;border:1px solid #e2e8f0;border-left:4px solid #3b82f6;border-radius:10px;padding:16px 18px;margin-top:18px;">
-            <div style="flex:0 0 36px;height:36px;border-radius:999px;background:#eff6ff;color:#2563eb;display:flex;align-items:center;justify-content:center;font-size:1.1rem;border:1px solid #bfdbfe;"></div>
-            <div>
-                <div style="font-size:.82rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#1e3a8a;margin-bottom:4px;">Advisory Recommendation</div>
-                <div style="font-size:.92rem;color:var(--text);line-height:1.5;"><?= h($result['recommendation']) ?></div>
+        <!-- Model Evaluation Metadata Bar -->
+        <div class="forecast-details">
+            <div class="forecast-detail">
+                <span class="forecast-detail__label">Target period</span><span class="forecast-detail__value"><?= h($targetPeriodR ?: 'Next Period') ?></span>
+            </div>
+            <div class="forecast-detail">
+                <span class="forecast-detail__label">Confidence</span><span class="forecast-detail__value"><?= $confPct ?>%</span>
+            </div>
+            <div class="forecast-detail">
+                <span class="forecast-detail__label">Accuracy</span><span class="forecast-detail__value"><?= round(($result['accuracy'] ?? 0) * 100, 1) ?>%</span>
+            </div>
+            <div class="forecast-detail">
+                <span class="forecast-detail__label">Model</span><span class="forecast-detail__value"><?= h($result['algorithm'] ?? 'XGBoost') ?></span>
             </div>
         </div>
+
+        <!-- Advisory Recommendation -->
+        <?php if (!empty($result['recommendation'])): ?>
+        <div class="forecast-advice">
+            <p class="forecast-section-label">Advisor note</p>
+            <p><?= h($result['recommendation']) ?></p>
+        </div>
         <?php endif; ?>
 
-        <!-- Risk factors -->
+        <!-- Risk Factors -->
         <?php if (!empty($result['risk_factors'])): ?>
-        <div style="margin-top:16px;display:flex;flex-wrap:wrap;align-items:center;gap:8px;">
-            <span style="font-size:.78rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;">Risk Factors:</span>
-            <?php foreach ($result['risk_factors'] as $rf): ?>
-                <span style="display:inline-flex;align-items:center;gap:6px;background:#fffbeb;color:#92400e;border:1px solid #fde68a;border-radius:8px;padding:6px 12px;font-size:.82rem;font-weight:600;"> <?= h($rf) ?></span>
-            <?php endforeach; ?>
+        <div class="forecast-risks">
+            <p class="forecast-section-label">Items to watch</p>
+            <div class="forecast-risk-list">
+                <?php foreach ($result['risk_factors'] as $rf): ?>
+                    <span class="forecast-risk">
+                        <?= h($rf) ?>
+                    </span>
+                <?php endforeach; ?>
+            </div>
         </div>
         <?php else: ?>
-        <div style="margin-top:14px;">
-            <span style="display:inline-flex;align-items:center;gap:6px;background:#ecfdf5;color:#065f46;border:1px solid #a7f3d0;border-radius:8px;padding:6px 12px;font-size:.82rem;font-weight:600;"> No critical risk factors identified</span>
+        <div class="forecast-risks">
+            <p class="forecast-section-label">Items to watch</p>
+            <div class="forecast-risk-list"><span class="forecast-risk">No critical risk factors identified.</span></div>
         </div>
         <?php endif; ?>
     </section>
@@ -682,18 +721,16 @@ page_header('Progressive Prediction');
 
 <!-- ── Forecast Form ── -->
 <div class="panel form-panel" style="margin-bottom:0;">
-    <!-- Info banner (Minimalist) -->
-    <div style="background:var(--surface-subtle,#f8fafc);border:1px solid var(--line,#e2e8f0);border-left:4px solid var(--primary,#1e3a8a);border-radius:6px;padding:12px 16px;margin-bottom:18px;">
-        <div style="font-weight:700;font-size:0.92rem;color:var(--text,#0f172a);margin-bottom:3px;">
-            Next-Period Grade Forecast
+    <div class="forecast-setup">
+        <h2 class="forecast-setup__title">Create a grade forecast</h2>
+        <p class="forecast-setup__copy">Choose a student and term. The forecast uses the latest recorded grading period and saved assessment scores.</p>
+        <div class="forecast-setup__steps" aria-label="Forecast steps">
+            <span><b>1</b> Choose student</span><span><b>2</b> Confirm term</span><span><b>3</b> Review forecast</span>
         </div>
-        <p style="margin:0;font-size:0.85rem;color:var(--muted,#64748b);line-height:1.5;">
-            Select a student and semester to automatically forecast their next grading period using currently saved scores.
-        </p>
     </div>
 
     <!-- Period flow visual (Simple Sequence) -->
-    <div style="display:flex;align-items:center;justify-content:center;gap:12px;margin:0 0 24px;flex-wrap:wrap;padding:10px 16px;background:var(--surface-subtle,#f8fafc);border:1px solid var(--line,#e2e8f0);border-radius:8px;font-family:'Plus Jakarta Sans','Segoe UI',sans-serif;">
+    <div class="grading-sequence" style="display:flex;align-items:center;justify-content:center;gap:12px;margin:0 0 24px;flex-wrap:wrap;padding:10px 16px;background:var(--surface-subtle,#f8fafc);border:1px solid var(--line,#e2e8f0);border-radius:8px;font-family:'Plus Jakarta Sans','Segoe UI',sans-serif;">
         <span style="font-size:0.8rem;font-weight:700;color:var(--muted,#64748b);text-transform:uppercase;letter-spacing:0.04em;">Grading Sequence:</span>
         <?php
         $flowPeriods = ['Prelim','Midterm','Semi-Final','Final'];
@@ -726,169 +763,90 @@ page_header('Progressive Prediction');
                         </option>
                     <?php endforeach; ?>
                 </select>
+                <div id="student_autofill_indicator" style="display:none;margin-top:8px;font-size:0.85rem;color:var(--green,#16a34a);font-weight:600;"></div>
             </div>
 
-        <div class="form-grid">
-            <label>
-                <span>Student No.</span>
-                <input id="student_no" name="student_no" list="student_datalist"
-                       value="<?= h(old_value('student_no')) ?>" required
-                       placeholder="e.g. 2026-0001" autocomplete="off">
-                <datalist id="student_datalist">
-                    <?php foreach ($registeredStudents as $st): ?>
-                        <option value="<?= h($st['student_no']) ?>"><?= h($st['full_name']) ?> — <?= h($st['year_level']) ?> (<?= h($st['section']) ?>)</option>
-                    <?php endforeach; ?>
-                </datalist>
-            </label>
-            <label>
-                <span>Full Name</span>
-                <input id="full_name" name="full_name"
-                       value="<?= h(old_value('full_name')) ?>" required>
-            </label>
-            <label>
-                <span>Year Level</span>
-                <select id="year_level" name="year_level" required>
-                    <?php foreach (['1st Year','2nd Year','3rd Year','4th Year'] as $opt): ?>
-                        <option <?= old_value('year_level','3rd Year') === $opt ? 'selected' : '' ?>><?= h($opt) ?></option>
-                    <?php endforeach; ?>
-                </select>
-            </label>
-            <label>
-                <span>Section</span>
-                <input id="section" name="section"
-                       value="<?= h(old_value('section','BSIT-1')) ?>" required>
-            </label>
-            <label>
-                <span>Gender</span>
-                <select id="gender" name="gender">
-                    <?php foreach (['' => 'Select', 'Female' => 'Female', 'Male' => 'Male', 'Prefer not to say' => 'Prefer not to say'] as $v => $l): ?>
-                        <option value="<?= h($v) ?>" <?= old_value('gender') === $v ? 'selected' : '' ?>><?= h($l) ?></option>
-                    <?php endforeach; ?>
-                </select>
-            </label>
-            <label>
-                <span>Scholarship</span>
-                <select id="scholarship_status" name="scholarship_status">
-                    <?php foreach (['None','CHED','TES','Academic','Athletic','Others'] as $opt): ?>
-                        <option value="<?= h($opt) ?>" <?= old_value('scholarship_status','None') === $opt ? 'selected' : '' ?>><?= h($opt) ?></option>
-                    <?php endforeach; ?>
-                </select>
-            </label>
-            <label>
-                <span>Academic Year</span>
-                <select name="academic_year" id="academic_year" required onchange="onContextChange()">
-                    <?php foreach (['2025-2026','2026-2027','2027-2028'] as $opt): ?>
-                        <option <?= old_value('academic_year','2025-2026') === $opt ? 'selected' : '' ?>><?= h($opt) ?></option>
-                    <?php endforeach; ?>
-                </select>
-            </label>
-            <label>
-                <span>Semester</span>
-                <select name="semester" id="semester" required onchange="onContextChange()">
-                    <?php foreach (['1st Semester','2nd Semester','Summer'] as $opt): ?>
-                        <option <?= old_value('semester','1st Semester') === $opt ? 'selected' : '' ?>><?= h($opt) ?></option>
-                    <?php endforeach; ?>
-                </select>
-            </label>
-            <label>
-                <span>Grading Period</span>
-                <select name="grading_period" id="grading_period" required onchange="onPeriodChange()">
-                    <option value="">— Select —</option>
-                    <?php foreach (['Prelim','Midterm','Semi-Final','Final'] as $opt): ?>
-                        <option value="<?= h($opt) ?>" <?= old_value('grading_period') === $opt ? 'selected' : '' ?>><?= h($opt) ?></option>
-                    <?php endforeach; ?>
-                </select>
-            </label>
-        </div>
-    </div>
+            <div class="form-grid">
+                <label>
+                    <span>Student No.</span>
+                    <input id="student_no" name="student_no" list="student_datalist"
+                           value="<?= h(old_value('student_no')) ?>" required
+                           placeholder="e.g. 2026-0001" autocomplete="off">
+                    <datalist id="student_datalist">
+                        <?php foreach ($registeredStudents as $st): ?>
+                            <option value="<?= h($st['student_no']) ?>"><?= h($st['full_name']) ?> — <?= h($st['year_level']) ?> (<?= h($st['section']) ?>)</option>
+                        <?php endforeach; ?>
+                    </datalist>
+                </label>
+                <label>
+                    <span>Full Name</span>
+                    <input id="full_name" name="full_name"
+                           value="<?= h(old_value('full_name')) ?>" readonly
+                           style="background-color:var(--surface-strong,#f1f5f9);">
+                </label>
+                <label>
+                    <span>Year Level</span>
+                    <input id="year_level" name="year_level"
+                           value="<?= h(old_value('year_level')) ?>" readonly
+                           style="background-color:var(--surface-strong,#f1f5f9);">
+                </label>
+                <label>
+                    <span>Section</span>
+                    <input id="section" name="section"
+                           value="<?= h(old_value('section')) ?>" readonly
+                           style="background-color:var(--surface-strong,#f1f5f9);">
+                </label>
+                <label>
+                    <span>Academic Year</span>
+                    <select name="academic_year" id="academic_year" required onchange="loadStudentStatus()">
+                        <?php foreach (['2025-2026','2026-2027','2027-2028'] as $opt): ?>
+                            <option <?= old_value('academic_year','2025-2026') === $opt ? 'selected' : '' ?>><?= h($opt) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </label>
+                <label>
+                    <span>Semester</span>
+                    <select name="semester" id="semester" required onchange="loadStudentStatus()">
+                        <?php foreach (['1st Semester','2nd Semester','Summer'] as $opt): ?>
+                            <option <?= old_value('semester','1st Semester') === $opt ? 'selected' : '' ?>><?= h($opt) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </label>
+            </div>
 
-    <!-- Section: Self-Assessment Profile -->
-    <div class="form-section" id="self-assessment-section">
-        <h2>Self-Assessment Profile</h2>
-        <div class="form-grid">
-            <label>
-                <span>Assigned Advisor / Professor</span>
-                <input type="text" id="assigned_advisor" value="<?= h($_cu['full_name'] ?? 'Advisor') ?>" readonly
-                       style="background-color: var(--surface-strong, #f1f5f9); color: var(--muted, #475569); cursor: not-allowed;">
-            </label>
-            <label>
-                <span>Internet Access</span>
-                <select name="internet_access" id="internet_access">
-                    <option value="1" <?= old_value('internet_access', '1') === '1' ? 'selected' : '' ?>>Yes (Available)</option>
-                    <option value="0" <?= old_value('internet_access') === '0' ? 'selected' : '' ?>>No (Limited/None)</option>
-                </select>
-            </label>
-            <label>
-                <span>Digital Literacy (1-5)</span>
-                <input type="number" min="1" max="5" name="digital_literacy" id="digital_literacy"
-                       value="<?= h(old_value('digital_literacy', '1')) ?>" required>
-                <small style="color: var(--muted, #666); font-size: 0.8rem; display: block; margin-top: 4px;">Rate 1 (Basic) to 5 (Advanced skills)</small>
-            </label>
-            <label>
-                <span>Weekly Study Hours</span>
-                <input type="number" step="0.01" min="0" max="80" name="study_hours" id="study_hours"
-                       value="<?= h(old_value('study_hours', '6.00')) ?>" required>
-            </label>
-            <label>
-                <span>Household Income (PHP)</span>
-                <input type="number" step="0.01" min="0" max="500000" name="household_income" id="household_income"
-                       value="<?= h(old_value('household_income', '2')) ?>" required>
-            </label>
-            <label>
-                <span>Parental Education Level</span>
-                <select name="parental_education" id="parental_education">
-                    <?php 
-                    $curParentEdu = (int)old_value('parental_education', '2');
-                    foreach ([1 => 'Elementary', 2 => 'High School', 3 => 'College', 4 => 'Postgraduate'] as $val => $label): 
-                    ?>
-                        <option value="<?= $val ?>" <?= ($curParentEdu === $val) ? 'selected' : '' ?>>
-                            <?= h($label) ?>
-                        </option>
-                    <?php endforeach; ?>
-                </select>
-            </label>
-            <label>
-                <span>Working Student</span>
-                <?php $curWorking = (int)old_value('working_student', '0'); ?>
-                <select name="working_student" id="working_student">
-                    <option value="0" <?= ($curWorking === 0) ? 'selected' : '' ?>>No (Full-time student)</option>
-                    <option value="1" <?= ($curWorking === 1) ? 'selected' : '' ?>>Yes (Part-time / Working)</option>
-                </select>
-            </label>
+            <!-- Auto-detect status display -->
+            <div id="auto-detect-panel" style="display:none;margin-top:16px;padding:16px 20px;border-radius:10px;border:1px solid var(--line);background:var(--surface-subtle,#f8fafc);">
+                <div style="font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:10px;">Auto-Detected Forecast Pipeline</div>
+                <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+                    <div>
+                        <div style="font-size:.72rem;color:var(--muted);font-weight:600;">Latest Recorded Period</div>
+                        <div id="detect-source" style="font-size:1rem;font-weight:800;color:var(--text);">—</div>
+                    </div>
+                    <div style="font-size:1.4rem;color:var(--blue,#2563eb);">→</div>
+                    <div>
+                        <div style="font-size:.72rem;color:var(--muted);font-weight:600;">Target Forecast Period</div>
+                        <div id="detect-target" style="font-size:1rem;font-weight:800;color:#2563eb;">—</div>
+                    </div>
+                    <div style="margin-left:auto;">
+                        <div id="detect-grades" style="font-size:.82rem;color:var(--muted);"></div>
+                    </div>
+                </div>
+                <div id="detect-warn" style="display:none;margin-top:10px;padding:8px 12px;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;color:#92400e;font-size:.84rem;font-weight:600;"></div>
+            </div>
         </div>
-    </div>
 
-    <!-- Section 2: Previous Period Grades (shown dynamically) -->
-    <div class="form-section" id="prev-grades-section" style="display:none;">
-        <h2>Previous Period Grades <small style="font-weight:400;color:var(--muted);">(Actual)</small></h2>
-        <div class="previous-grades-banner" id="prev-grades-banner"></div>
-        <div class="form-grid" id="prev-grades-inputs"></div>
-    </div>
-
-    <!-- Section 3: Current Period Components -->
-    <div class="form-section" id="components-section" style="display:none;">
-        <h2>Current Period Assessment Components <span id="period-label-h" style="color:var(--blue);"></span></h2>
-        <p style="font-size:.85rem;color:var(--muted);margin:0 0 12px;">
-            Leave a component blank if the score has not been recorded yet.
-            A blank value means <em>Missing / Not Yet Submitted</em> — it is <strong>not</strong> treated as zero.
-        </p>
-        <div class="insufficient-warning" id="insuf-warning">
-            Notice: Not enough components filled in. Please enter at least 2 assessment scores to generate a prediction.
-        </div>
-        <div class="form-grid" id="components-grid">
-            <?php
-            $compFields = [
-                'exam_score'       => ['label' => 'Exam Score',       'key' => 'Exam'],
-                'quiz_score'       => ['label' => 'Quiz Score',       'key' => 'Quiz'],
-                'activity_score'   => ['label' => 'Activities Score', 'key' => 'Activities'],
-                'assignment_score' => ['label' => 'Assignment Score', 'key' => 'Assignment'],
-                'project_score'    => ['label' => 'Project Score',    'key' => 'Project'],
-                'attendance_rate'  => ['label' => 'Attendance Rate (%)', 'key' => null],
-                'lab_score'        => ['label' => 'Lab Score',        'key' => null],
-            ];
-            foreach ($compFields as $name => $meta):
-                $posted = old_value($name);
-            ?>
+        <!-- Socio-Demographic & Profile Settings (Collapsible) -->
+        <details class="form-section" style="margin-top:0;" open>
+            <summary style="cursor:pointer;font-weight:700;font-size:.95rem;padding:6px 0;list-style:none;display:flex;align-items:center;gap:8px;">
+                Socio-Demographic &amp; Survey Profile
+                <small style="font-weight:400;color:var(--muted);font-size:.8rem;">(auto-loaded from student record)</small>
+            </summary>
+            <div class="form-grid" style="margin-top:16px;">
+                <label>
+                    <span>Assigned Advisor / Professor</span>
+                    <input type="text" id="assigned_advisor" value="<?= h($_cu['full_name'] ?? 'Advisor') ?>" readonly
+                           style="background-color:var(--surface-strong,#f1f5f9);color:var(--muted,#475569);cursor:not-allowed;">
+                </label>
                 <label>
                     <span>Internet Access</span>
                     <select name="internet_access" id="internet_access">
@@ -896,112 +854,96 @@ page_header('Progressive Prediction');
                         <option value="0" <?= old_value('internet_access')==='0' ? 'selected' : '' ?>>No (Limited/None)</option>
                     </select>
                 </label>
+                <label>
+                    <span>Digital Literacy (1-5)</span>
+                    <input type="number" min="1" max="5" name="digital_literacy" id="digital_literacy"
+                           value="<?= h(old_value('digital_literacy','3')) ?>" required>
+                    <small style="color:var(--muted);font-size:.78rem;margin-top:4px;display:block;">1=Basic → 5=Advanced</small>
+                </label>
+                <label>
+                    <span>Weekly Study Hours</span>
+                    <input type="number" step="0.1" min="0" max="80" name="study_hours" id="study_hours"
+                           value="<?= h(old_value('study_hours','6.0')) ?>" required>
+                </label>
+                <label>
+                    <span>Household Income (PHP)</span>
+                    <input type="number" step="1" min="0" max="500000" name="household_income" id="household_income"
+                           value="<?= h(old_value('household_income','0')) ?>" required>
+                </label>
+                <label>
+                    <span>Parental Education</span>
+                    <select name="parental_education" id="parental_education">
+                        <?php 
+                        $curParentEdu = (int)old_value('parental_education', '3');
+                        foreach ([1 => 'Elementary', 2 => 'High School', 3 => 'College', 4 => 'Postgraduate'] as $val => $label): 
+                        ?>
+                            <option value="<?= $val ?>" <?= ($curParentEdu === $val) ? 'selected' : '' ?>><?= h($label) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </label>
+                <label>
+                    <span>Working Student</span>
+                    <?php $curWorking = (int)old_value('working_student', '0'); ?>
+                    <select name="working_student" id="working_student">
+                        <option value="0" <?= ($curWorking === 0) ? 'selected' : '' ?>>No (Full-time student)</option>
+                        <option value="1" <?= ($curWorking === 1) ? 'selected' : '' ?>>Yes (Part-time / Working)</option>
+                    </select>
+                </label>
             </div>
         </details>
 
         <div class="form-actions" style="margin-top:8px;">
             <button class="button button-primary" type="submit" id="submit-btn" style="gap:8px;display:inline-flex;align-items:center;">
-                <span></span> Generate Next-Period Forecast
+                Generate Next-Period Forecast
             </button>
             <span id="forecast-hint" style="font-size:.83rem;color:var(--muted);"></span>
         </div>
     </form>
 </div>
+
 <script>
-/* --------------------------------------------------------------- */
-/* Grading weights from PHP                                        */
-/* --------------------------------------------------------------- */
-const ALL_WEIGHTS = <?= json_encode($allWeights) ?>;
-const PERIOD_PREV = {
-    'Prelim':     [],
-    'Midterm':    ['Prelim'],
-    'Semi-Final': ['Prelim','Midterm'],
-    'Final':      ['Prelim','Midterm','Semi-Final']
-};
-
-const GRADE_FIELD_KEY = {
-    'exam_score':       'Exam',
-    'quiz_score':       'Quiz',
-    'activity_score':   'Activities',
-    'assignment_score': 'Assignment',
-    'project_score':    'Project',
-};
-
-let knownPeriodGrades = {};   // {Prelim: 85.0, Midterm: 87.0, ...}
-let currentPeriod     = '';
-
-const DEFAULT_ADVISOR_NAME = <?= json_encode($_cu['full_name'] ?? 'Advisor') ?>;
 const REGISTERED_STUDENTS = <?= json_encode($registeredStudentsMap, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>;
+const PERIOD_NEXT = { 'Prelim': 'Midterm', 'Midterm': 'Semi-Final', 'Semi-Final': 'Final' };
 
 /* --------------------------------------------------------------- */
-/* Quick-select student dropdown                                    */
+/* Apply student profile data to form fields                       */
 /* --------------------------------------------------------------- */
 function applyStudentProfile(student, sv = {}) {
     if (!student) return;
 
-    if (student.student_no) {
-        const snoEl = document.getElementById('student_no');
-        if (snoEl && snoEl.value !== student.student_no) snoEl.value = student.student_no;
-        const qsEl = document.getElementById('student_quick_select');
-        if (qsEl && qsEl.value !== student.student_no) qsEl.value = student.student_no;
+    const set = (id, val) => {
+        const el = document.getElementById(id);
+        if (el && val !== null && val !== undefined) el.value = val;
+    };
+
+    set('full_name', student.full_name);
+    set('year_level', student.year_level);
+    set('section', student.section);
+
+    if (student.advisor_name) {
+        set('assigned_advisor', student.advisor_name);
     }
 
-    if (student.full_name) document.getElementById('full_name').value = student.full_name;
-    if (student.year_level) document.getElementById('year_level').value = student.year_level;
-    if (student.section) document.getElementById('section').value = student.section;
-    if (student.gender) document.getElementById('gender').value = student.gender;
-    if (student.scholarship_status) document.getElementById('scholarship_status').value = student.scholarship_status;
-
-    // Assigned advisor
-    const advEl = document.getElementById('assigned_advisor');
-    if (advEl) {
-        if (student.advisor_name) {
-            advEl.value = student.advisor_name;
-        } else if (DEFAULT_ADVISOR_NAME) {
-            advEl.value = DEFAULT_ADVISOR_NAME;
-        }
-    }
-
-    // Internet Access
     const netVal = (sv && sv.internet_access !== undefined && sv.internet_access !== null)
         ? sv.internet_access
-        : (student.internet_access !== undefined && student.internet_access !== null ? student.internet_access : null);
-    if (netVal !== null) {
-        const el = document.getElementById('internet_access');
-        if (el) el.value = String(netVal);
-    }
+        : (student.internet_access !== undefined ? student.internet_access : null);
+    if (netVal !== null) set('internet_access', String(netVal));
 
-    // Household Income
-    if (student.household_income !== undefined && student.household_income !== null && student.household_income !== '') {
-        const el = document.getElementById('household_income');
-        if (el) el.value = student.household_income;
+    if (student.household_income !== undefined && student.household_income !== null) {
+        set('household_income', student.household_income);
     }
-
-    // Parental Education
     if (student.parental_education !== undefined && student.parental_education !== null) {
-        const el = document.getElementById('parental_education');
-        if (el) el.value = student.parental_education;
+        set('parental_education', student.parental_education);
     }
-
-    // Working Student
     if (student.working_student !== undefined && student.working_student !== null) {
-        const el = document.getElementById('working_student');
-        if (el) el.value = student.working_student;
+        set('working_student', student.working_student);
     }
 
-    // Digital Literacy
     const dlVal = (sv && sv.digital_literacy) ? sv.digital_literacy : (student.digital_literacy ?? null);
-    if (dlVal !== null) {
-        const el = document.getElementById('digital_literacy');
-        if (el) el.value = dlVal;
-    }
+    if (dlVal !== null) set('digital_literacy', dlVal);
 
-    // Weekly Study Hours
     const shVal = (sv && sv.study_hours) ? sv.study_hours : (student.study_hours ?? null);
-    if (shVal !== null) {
-        const el = document.getElementById('study_hours');
-        if (el) el.value = shVal;
-    }
+    if (shVal !== null) set('study_hours', shVal);
 
     const ind = document.getElementById('student_autofill_indicator');
     if (ind) {
@@ -1012,11 +954,52 @@ function applyStudentProfile(student, sv = {}) {
     }
 }
 
-function onStudentNoChange(sno) {
-    sno = (sno || '').trim();
-    if (!sno) {
-        const ind = document.getElementById('student_autofill_indicator');
-        if (ind) ind.style.display = 'none';
+/* --------------------------------------------------------------- */
+/* Quick-select student dropdown                                    */
+/* --------------------------------------------------------------- */
+const quickSelectEl = document.getElementById('student_quick_select');
+if (quickSelectEl) {
+    quickSelectEl.addEventListener('change', function () {
+        const sno = this.value;
+        const snoInput = document.getElementById('student_no');
+        if (sno && snoInput) {
+            snoInput.value = sno;
+            loadStudentStatus();
+        }
+    });
+}
+
+const snoInput = document.getElementById('student_no');
+if (snoInput) {
+    snoInput.addEventListener('change', function () { loadStudentStatus(); });
+    snoInput.addEventListener('blur',   function () { loadStudentStatus(); });
+    snoInput.addEventListener('input',  function () {
+        const qs = document.getElementById('student_quick_select');
+        const val = this.value.trim();
+        if (qs && REGISTERED_STUDENTS[val]) {
+            qs.value = val;
+            applyStudentProfile(REGISTERED_STUDENTS[val]);
+        }
+    });
+}
+
+/* --------------------------------------------------------------- */
+/* Load student status & grades via AJAX                           */
+/* --------------------------------------------------------------- */
+function loadStudentStatus() {
+    const sno = (document.getElementById('student_no')?.value || '').trim();
+    const ay  = document.getElementById('academic_year')?.value || '';
+    const sem = document.getElementById('semester')?.value || '';
+
+    const panel = document.getElementById('auto-detect-panel');
+    const srcEl = document.getElementById('detect-source');
+    const tgtEl = document.getElementById('detect-target');
+    const grEl  = document.getElementById('detect-grades');
+    const warnEl= document.getElementById('detect-warn');
+    const hint  = document.getElementById('forecast-hint');
+
+    if (!sno || !ay || !sem) {
+        if (panel) panel.style.display = 'none';
         return;
     }
 
@@ -1026,19 +1009,16 @@ function onStudentNoChange(sno) {
         .then(res => {
             if (!panel) return;
 
-            // Autofill socio-demographic from DB data
             const sv = res.data?.survey || {};
             const st = res.data?.student || {};
-            if (st) applyProfileFields({ ...st, ...sv });
+            if (st) applyStudentProfile(st, sv);
 
-            // Sync quick-select
             const qs = document.getElementById('student_quick_select');
             if (qs && sno) qs.value = sno;
 
             const pg = res.data?.period_grades || {};
             const allPeriods = ['Prelim', 'Midterm', 'Semi-Final', 'Final'];
 
-            // Find latest period with a saved grade
             let latestPeriod = null;
             for (let i = allPeriods.length - 1; i >= 0; i--) {
                 if (pg[allPeriods[i]] !== undefined && pg[allPeriods[i]] !== null) {
@@ -1054,16 +1034,16 @@ function onStudentNoChange(sno) {
                 srcEl.textContent = 'None saved';
                 tgtEl.textContent = '—';
                 grEl.textContent  = '';
-                warnEl.textContent = '⚠ No grades saved yet. Please enter scores first via Enter Scores.';
+                warnEl.textContent = 'No grades saved yet. Please enter scores first via Enter Scores.';
                 warnEl.style.display = '';
-                if (hint) hint.textContent = '⚠ No grades available to forecast.';
+                if (hint) hint.textContent = 'No grades available to forecast.';
                 return;
             }
 
             if (latestPeriod === 'Final') {
                 srcEl.textContent = 'Final';
                 tgtEl.textContent = '—';
-                warnEl.textContent = 'ℹ Final is the last period. No next-period forecast available.';
+                warnEl.textContent = 'Final is the last period. No next-period forecast available.';
                 warnEl.style.display = '';
                 if (hint) hint.textContent = 'Final period reached — no next forecast.';
                 return;
@@ -1073,7 +1053,6 @@ function onStudentNoChange(sno) {
             srcEl.textContent = latestPeriod + ' (' + parseFloat(pg[latestPeriod]).toFixed(2) + '%)';
             tgtEl.textContent = targetPeriod;
 
-            // Show all saved grades summary
             const gradeLines = allPeriods
                 .filter(p => pg[p] !== undefined && pg[p] !== null)
                 .map(p => `${p}: ${parseFloat(pg[p]).toFixed(2)}%`)
@@ -1093,7 +1072,7 @@ document.getElementById('prediction-form').addEventListener('submit', function (
     const btn = document.getElementById('submit-btn');
     if (btn) {
         btn.disabled = true;
-        btn.innerHTML = '⏳ Generating Forecast…';
+        btn.innerHTML = 'Generating Forecast…';
     }
 });
 
