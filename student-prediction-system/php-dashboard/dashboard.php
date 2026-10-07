@@ -140,7 +140,7 @@ page_header('Dashboard');
                         </td>
                         <td><?= h($row['year_level'] . ' / ' . $row['section']) ?></td>
                         <td><span class="status <?= h(status_class($row['predicted_status'])) ?>"><?= h($row['predicted_status']) ?></span></td>
-                        <td><?= h((string) round((float) $row['confidence'] * 100, 1)) ?>%</td>
+                        <td><?= (float)$row['confidence'] > 0 ? h((string) round((float) $row['confidence'] * 100, 1)) . '%' : 'N/A' ?></td>
                         <td style="text-align: right;"><?= h(date('M d, Y - h:i A', strtotime($row['created_at']))) ?></td>
                     </tr>
                 <?php endforeach; ?>

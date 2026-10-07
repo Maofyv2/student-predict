@@ -261,20 +261,20 @@ page_header('Student Portal');
         <div class="panel-title">
             <h2>Current Grade Standing</h2>
             <?php if ($prediction && !empty($prediction['grading_period'])): ?>
-                <span class="pill pill-period-<?= strtolower(str_replace('-', '', $prediction['grading_period'])) ?>"><?= h($prediction['grading_period']) ?> Prediction</span>
+                <span class="pill pill-period-<?= strtolower(str_replace('-', '', $prediction['grading_period'])) ?>"><?= h($prediction['grading_period']) ?> <?= !empty($prediction['algorithm']) && strpos($prediction['algorithm'], 'Next-Period Regression') !== false ? 'Forecast' : 'Prediction' ?></span>
             <?php endif; ?>
         </div>
         <?php if ($prediction): ?>
             <div style="text-align: center; padding: 2rem;">
-                <?php $portalGrade = (float)($prediction['predicted_grade'] ?? 0); ?>
+                <?php $portalGrade = (float)($prediction['predicted_grade'] ?? 0); $isForecast = strpos((string)($prediction['algorithm'] ?? ''), 'Next-Period Regression') !== false; ?>
                 <?php if ($portalGrade > 0): ?>
                     <?php $gradeStanding = student_portal_grade_status($portalGrade); ?>
-                    <small style="display:block;color:var(--muted);margin-bottom:6px;">Grade Standing</small>
+                    <small style="display:block;color:var(--muted);margin-bottom:6px;"><?= $isForecast ? 'Forecast Standing' : 'Grade Standing' ?></small>
                     <div class="status <?= h(status_class($gradeStanding)) ?>" style="font-size: 2rem; padding: 1rem 2rem;">
                         <?= h($gradeStanding) ?>
                     </div>
                     <p style="margin-top: 1rem; font-size: 1.25rem; font-weight: 700; color: var(--text);">
-                        Computed Grade: <?= round($portalGrade, 1) ?>%
+                        <?= $isForecast ? 'Forecast Grade' : 'Computed Grade' ?>: <?= round($portalGrade, 1) ?>%
                     </p>
                     <p style="margin-top:.5rem;color:var(--muted);font-size:.9rem;">
                         Model estimate: <strong><?= h($prediction['predicted_status']) ?></strong>
@@ -286,7 +286,7 @@ page_header('Student Portal');
                 <?php endif; ?>
                 <p style="margin-top: 0.5rem; color: var(--text-muted); font-size: 0.85rem;">
                     Evaluated on <?= date('M d, Y', strtotime($prediction['created_at'])) ?>
-                    • Model confidence: <?= round($prediction['confidence'] * 100, 1) ?>%
+                    • <?php if (!$isForecast): ?>Model confidence: <?= round($prediction['confidence'] * 100, 1) ?>%<?php else: ?>Forecast, not an actual grade<?php endif; ?>
                 </p>
                 <div style="margin-top: 2rem; text-align: left;">
                     <strong>Recommendation:</strong>
@@ -380,7 +380,7 @@ page_header('Student Portal');
                 </h4>
                 <?php if ($pData): ?>
                     <div style="margin-top: 10px;">
-                        <?php $periodGrade = (float)($period_components[$per]['computed_grade'] ?? $pData['predicted_grade'] ?? 0); ?>
+                        <?php $isForecast = strpos((string)($pData['algorithm'] ?? ''), 'Next-Period Regression') !== false; $hasActualGrade = isset($period_components[$per]['computed_grade']); $periodGrade = (float)($period_components[$per]['computed_grade'] ?? $pData['predicted_grade'] ?? 0); ?>
                         <?php if ($periodGrade > 0): ?>
                             <?php $periodStanding = student_portal_grade_status($periodGrade); ?>
                             <span class="status <?= h(status_class($periodStanding)) ?>" style="display: inline-block; padding: 4px 10px; font-size: 0.85rem;">
@@ -389,7 +389,7 @@ page_header('Student Portal');
                             <div style="margin-top: 8px; font-size: 1.15rem; font-weight: 700;">
                                 <?= round($periodGrade, 1) ?>%
                             </div>
-                            <small style="display:block;margin-top:4px;color:var(--muted);">Grade standing</small>
+                            <small style="display:block;margin-top:4px;color:var(--muted);"><?= $hasActualGrade ? 'Actual grade standing' : 'Forecast standing' ?></small>
                             <small style="display:block;margin-top:6px;color:var(--muted);">Model estimate: <?= h($pData['predicted_status']) ?></small>
                         <?php else: ?>
                             <span class="status <?= h(status_class($pData['predicted_status'])) ?>" style="display: inline-block; padding: 4px 10px; font-size: 0.85rem;">
@@ -397,7 +397,7 @@ page_header('Student Portal');
                             </span>
                         <?php endif; ?>
                         <small style="display: block; margin-top: 6px; color: var(--muted); font-size: 0.75rem;">
-                            <?= round($pData['confidence'] * 100, 1) ?>% confidence<br>
+                            <?= $isForecast ? 'Forecast' : round($pData['confidence'] * 100, 1) . '% confidence' ?><br>
                             <?= date('M d, Y', strtotime($pData['created_at'])) ?>
                         </small>
                     </div>
@@ -464,7 +464,7 @@ page_header('Student Portal');
                             <div>
                                 <small style="color: var(--muted); display: block; font-size: 0.75rem;">MODEL ESTIMATE</small>
                                 <span class="status <?= h(status_class($pData['predicted_status'])) ?>" style="font-size: 0.8rem; padding: 2px 8px;">
-                                    <?= h($pData['predicted_status']) ?> (<?= round((float)$pData['confidence'] * 100, 1) ?>%)
+                                    <?= h($pData['predicted_status']) ?><?= strpos((string)($pData['algorithm'] ?? ''), 'Next-Period Regression') !== false ? '' : ' (' . round((float)$pData['confidence'] * 100, 1) . '%)' ?>
                                 </span>
                             </div>
                         <?php endif; ?>

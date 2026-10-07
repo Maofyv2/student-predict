@@ -18,6 +18,9 @@ from train_model import (
     FEATURE_COLUMNS,
     METADATA_PATH,
     MODEL_PATH,
+    NEXT_PERIOD_FEATURE_COLUMNS,
+    NEXT_PERIOD_MODEL_PATHS,
+    NEXT_PERIOD_TARGETS,
     STAGE_ENCODER_PATHS,
     STAGE_FEATURE_COLUMNS,
     STAGE_MODEL_PATHS,
@@ -45,7 +48,19 @@ def add_cors_headers(response):
 def ensure_model_files() -> None:
     missing_legacy = [p for p in (MODEL_PATH, ENCODER_PATH) if not p.exists() or p.stat().st_size == 0]
     missing_stage  = [p for p in STAGE_MODEL_PATHS.values() if not p.exists() or p.stat().st_size == 0]
-    if missing_legacy or missing_stage:
+    missing_next = [p for p in NEXT_PERIOD_MODEL_PATHS.values() if not p.exists() or p.stat().st_size == 0]
+    missing_forecast_metric = True
+    if METADATA_PATH.exists():
+        try:
+            saved_metadata = json.loads(METADATA_PATH.read_text(encoding="utf-8"))
+            saved_forecasts = saved_metadata.get("next_period_models", {})
+            missing_forecast_metric = not saved_forecasts or any(
+                "within_5_points_rate" not in saved_forecasts.get(period, {})
+                for period in NEXT_PERIOD_TARGETS
+            )
+        except (OSError, json.JSONDecodeError):
+            missing_forecast_metric = True
+    if missing_legacy or missing_stage or missing_next or missing_forecast_metric:
         train_and_save_model()
 
 
@@ -64,10 +79,16 @@ def load_artifacts():
             stage_models[period]   = joblib.load(path)
             stage_encoders[period] = joblib.load(STAGE_ENCODER_PATHS[period])
 
-    return model, encoder, metadata, stage_models, stage_encoders
+    next_period_models = {
+        period: joblib.load(path)
+        for period, path in NEXT_PERIOD_MODEL_PATHS.items()
+        if path.exists()
+    }
+
+    return model, encoder, metadata, stage_models, stage_encoders, next_period_models
 
 
-model, encoder, metadata, stage_models, stage_encoders = load_artifacts()
+model, encoder, metadata, stage_models, stage_encoders, next_period_models = load_artifacts()
 
 
 # ------------------------------------------------------------------ #
@@ -236,9 +257,9 @@ def metrics():
 
 @app.post("/reload-model")
 def reload_model():
-    global model, encoder, metadata, stage_models, stage_encoders
+    global model, encoder, metadata, stage_models, stage_encoders, next_period_models
     metadata = train_and_save_model()
-    model, encoder, metadata, stage_models, stage_encoders = load_artifacts()
+    model, encoder, metadata, stage_models, stage_encoders, next_period_models = load_artifacts()
     return jsonify({"status": "reloaded", "metadata": metadata})
 
 
@@ -323,6 +344,46 @@ def predict_progressive():
         "feature_importance": stage_meta.get("feature_importance", {}),
         "model_accuracy":     stage_meta.get("accuracy"),
         "model_f1":           stage_meta.get("weighted_f1"),
+    })
+
+
+@app.post("/predict-next-period")
+def predict_next_period():
+    """Forecast the next grading-period grade from actual grades so far."""
+    data = request.get_json(silent=True) or {}
+    period = str(data.get("current_period", "")).strip()
+    if period not in NEXT_PERIOD_TARGETS:
+        return jsonify({"error": "current_period must be Prelim, Midterm, or Semi-Final; Final has no next period."}), 422
+    if period not in next_period_models:
+        return jsonify({"error": f"Next-period model for '{period}' is not loaded. Please retrain."}), 503
+
+    limits = {"attendance_rate": (0, 100), "lab_score": (0, 100),
+              "internet_access": (0, 1), "digital_literacy": (1, 5),
+              "household_income": (0, None), "parental_education": (1, 4),
+              "study_hours": (0, 80), "working_student": (0, 1)}
+    grade_keys = [key for key in NEXT_PERIOD_FEATURE_COLUMNS[period] if key.endswith("_grade")]
+    try:
+        row = {key: as_number(data, key, 0, 100) for key in grade_keys}
+        row.update({key: as_number(data, key, *bounds) for key, bounds in limits.items()})
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 422
+
+    features = NEXT_PERIOD_FEATURE_COLUMNS[period]
+    estimate = float(next_period_models[period].predict(pd.DataFrame([row], columns=features))[0])
+    estimate = round(min(100.0, max(0.0, estimate)), 2)
+    status = "Pass" if estimate >= 75 else ("At-Risk" if estimate >= 70 else "Fail")
+    factors = risk_factors(row)
+    meta = metadata.get("next_period_models", {}).get(period, {})
+    return jsonify({
+        "prediction": status,
+        "predicted_grade": estimate,
+        "current_period": period,
+        "target_period": {"Prelim": "Midterm", "Midterm": "Semi-Final", "Semi-Final": "Final"}[period],
+        "model_mae": meta.get("mae"),
+        "model_rmse": meta.get("rmse"),
+        "within_5_points_rate": meta.get("within_5_points_rate"),
+        "recommendation": recommendation(status, factors),
+        "risk_factors": factors,
     })
 
 

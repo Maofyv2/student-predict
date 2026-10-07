@@ -5,10 +5,10 @@ from pathlib import Path
 
 import joblib
 import pandas as pd
-from sklearn.metrics import accuracy_score, classification_report, f1_score
+from sklearn.metrics import accuracy_score, classification_report, f1_score, mean_absolute_error, mean_squared_error
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
-from xgboost import XGBClassifier
+from xgboost import XGBClassifier, XGBRegressor
 
 
 BASE_DIR = Path(__file__).resolve().parents[1]
@@ -49,6 +49,22 @@ SOCIO_FEATURES = [
     "study_hours",
     "working_student",
 ]
+
+# Forecast the next period from grades that are already available.
+NEXT_PERIOD_TARGETS = {
+    "Prelim": "midterm_grade",
+    "Midterm": "semi_final_grade",
+    "Semi-Final": "final_grade",
+}
+NEXT_PERIOD_MODEL_PATHS = {
+    period: MODEL_DIR / f"next_period_{period.lower().replace('-', '')}.pkl"
+    for period in NEXT_PERIOD_TARGETS
+}
+NEXT_PERIOD_FEATURE_COLUMNS = {
+    "Prelim": ["prelim_grade"] + SOCIO_FEATURES,
+    "Midterm": ["prelim_grade", "midterm_grade"] + SOCIO_FEATURES,
+    "Semi-Final": ["prelim_grade", "midterm_grade", "semi_final_grade"] + SOCIO_FEATURES,
+}
 
 # Feature sets per stage
 # The "current period computed grade" maps to the CSV column for that period.
@@ -123,6 +139,36 @@ def _build_xgb() -> XGBClassifier:
         random_state=42,
         verbosity=0,
     )
+
+
+def train_next_period(df: pd.DataFrame, period: str) -> dict:
+    """Fit a grade regressor for the period immediately after `period`."""
+    features = NEXT_PERIOD_FEATURE_COLUMNS[period]
+    target = NEXT_PERIOD_TARGETS[period]
+    usable = df[features + [target]].apply(pd.to_numeric, errors="coerce").dropna()
+    x, y = usable[features], usable[target]
+    x_train, x_test, y_train, y_test = train_test_split(
+        x, y, test_size=0.25, random_state=42
+    )
+    regressor = XGBRegressor(
+        objective="reg:squarederror", n_estimators=120, max_depth=3,
+        learning_rate=0.08, subsample=0.9, colsample_bytree=0.9,
+        random_state=42, verbosity=0,
+    )
+    regressor.fit(x_train, y_train)
+    prediction = regressor.predict(x_test)
+    within_5_points_rate = float((abs(y_test.to_numpy() - prediction) <= 5.0).mean())
+    joblib.dump(regressor, NEXT_PERIOD_MODEL_PATHS[period])
+    return {
+        "source_period": period,
+        "target_period": target,
+        "feature_columns": features,
+        "training_rows": int(len(usable)),
+        "test_rows": int(len(x_test)),
+        "mae": round(float(mean_absolute_error(y_test, prediction)), 3),
+        "rmse": round(float(mean_squared_error(y_test, prediction) ** 0.5), 3),
+        "within_5_points_rate": round(within_5_points_rate, 4),
+    }
 
 
 def train_stage(
@@ -202,6 +248,11 @@ def train_and_save_model() -> dict:
         print(f"Training {period} model …")
         stage_metadata[period] = train_stage(df, period)
 
+    next_period_metadata = {
+        period: train_next_period(df, period)
+        for period in NEXT_PERIOD_TARGETS
+    }
+
     # Also train the legacy full model (for /predict backward-compat)
     encoder_legacy = LabelEncoder()
     x_legacy = df[FEATURE_COLUMNS]
@@ -227,6 +278,7 @@ def train_and_save_model() -> dict:
         "accuracy": round(float(accuracy_score(y_te, y_pred_l)), 4),
         "weighted_f1": round(float(f1_score(y_te, y_pred_l, average="weighted")), 4),
         "stage_models": stage_metadata,
+        "next_period_models": next_period_metadata,
         "feature_importance": stage_metadata["Final"]["feature_importance"],
     }
 

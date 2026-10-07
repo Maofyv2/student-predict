@@ -616,7 +616,8 @@ function api_request_local(string $method, string $path, ?array $payload = null)
     }
     $data = json_decode($raw, true);
     if ($status >= 400) {
-        return array('ok' => false, 'status' => $status, 'error' => $data['error'] ?? 'API request failed.');
+        $message = is_array($data) ? ($data['error'] ?? null) : null;
+        return array('ok' => false, 'status' => $status, 'error' => $message ?: "Flask API returned HTTP {$status} for {$path}.");
     }
     return array('ok' => true, 'status' => $status, 'data' => $data);
 }
@@ -645,7 +646,7 @@ function api_request($method, $path,$payload = null) {
     }
 
     $data = json_decode($raw, true);
-    if ($status >= 400) {$err_msg = isset($data['error']) ?$data['error'] : 'API request failed.';
+    if ($status >= 400) {$err_msg = is_array($data) && isset($data['error']) ? $data['error'] : "Flask API returned HTTP {$status} for {$path}.";
         return array('ok' => false, 'status' => $status, 'error' =>$err_msg);
     }
 

@@ -195,7 +195,7 @@ page_header('Scholarship Eligibility');
                                         <?= h($student['predicted_status']) ?>
                                     </span>
                                     <?php if (isset($student['confidence'])): ?>
-                                        <small style="font-size: 0.7rem;"><?= round($student['confidence'] * 100) ?>% Confidence</small>
+                                        <small style="font-size: 0.7rem;"><?= (float)$student['confidence'] > 0 ? round($student['confidence'] * 100) . '% Confidence' : 'Grade forecast' ?></small>
                                     <?php endif; ?>
                                 <?php else: ?>
                                     <span class="status status-muted">Pending AI</span>

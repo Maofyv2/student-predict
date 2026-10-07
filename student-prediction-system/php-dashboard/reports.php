@@ -403,7 +403,7 @@ page_header('Advanced Reports');
                                 <td><span class="pill pill-period-<?= strtolower(str_replace('-', '', $row['grading_period'] ?? 'default')) ?>"><?= h($row['grading_period'] ?? 'All') ?></span></td>
                                 <td><span class="status <?= h(status_class($row['predicted_status'])) ?>"><?= h($row['predicted_status']) ?></span></td>
                                 <td><strong><?= $row['predicted_grade'] ? round($row['predicted_grade'], 1) . '%' : '—' ?></strong></td>
-                                <td><?= round($row['confidence'] * 100, 1) ?>%</td>
+                                <td><?= (float)$row['confidence'] > 0 ? round($row['confidence'] * 100, 1) . '%' : 'N/A' ?></td>
                                 <td>
                                     <?php $factors = json_decode($row['risk_factors'] ?: '[]', true); ?>
                                     <div class="chip-list compact">

@@ -249,6 +249,11 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         }
     }
 
+    // Final is the last period, so it has no next-period forecast target.
+    if (!$errors && $runPredict && $gradingPeriod === 'Final') {
+        $errors[] = 'Final is the last grading period, so there is no later period to forecast.';
+    }
+
     // Process Generate Prediction (only if scores are saved)
     if (!$errors && $runPredict && $computedGrade !== null) {
         // Double-check verification: scores must be recorded in tbl_grade_components
@@ -281,8 +286,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 
             if (!$errors) {
                 $apiPayload = [
-                    'grading_period'     => $gradingPeriod,
-                    'computed_grade'     => $computedGrade,
+                    'current_period'     => $gradingPeriod,
                     'attendance_rate'    => $components['attendance_rate'] ?? 85.0,
                     'lab_score'          => $components['lab_score'] ?? 80.0,
                     'internet_access'    => $internetAccess,
@@ -298,6 +302,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                     'Midterm'    => 'midterm_grade',
                     'Semi-Final' => 'semi_final_grade'
                 ];
+                $apiPayload[$periodGradeMap[$gradingPeriod]] = $computedGrade;
                 foreach ($PERIOD_PREV[$gradingPeriod] as $pp) {
                     if (isset($prevGrades[$pp]) && isset($periodGradeMap[$pp])) {
                         $apiPayload[$periodGradeMap[$pp]] = $prevGrades[$pp];
@@ -305,9 +310,17 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                 }
 
                 // Call prediction API (local or remote)
-                $api = api_request_local('POST', '/predict-progressive', $apiPayload);
-                if (!$api['ok']) {
-                    $api = api_request('POST', '/predict-progressive', $apiPayload);
+                $localApi = api_request_local('POST', '/predict-next-period', $apiPayload);
+                $api = $localApi;
+                if (!$localApi['ok']) {
+                    $hostedApi = api_request('POST', '/predict-next-period', $apiPayload);
+                    if ($hostedApi['ok']) {
+                        $api = $hostedApi;
+                    } else {
+                        $api = $hostedApi;
+                        $api['error'] = 'Local Flask API: ' . ($localApi['error'] ?? 'unavailable')
+                            . ' Hosted Flask API: ' . ($hostedApi['error'] ?? 'unavailable');
+                    }
                 }
 
                 if (!$api['ok']) {
@@ -369,15 +382,17 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                         // Prediction data
                         $prediction     = (string)($api['data']['prediction'] ?? 'Unknown');
                         $predictedGrade = (float)($api['data']['predicted_grade'] ?? $computedGrade);
-                        $confidence     = (float)($api['data']['confidence'] ?? 0);
+                        $confidence     = 0.0; // Grade regression has no classification confidence.
                         $recomm         = (string)($api['data']['recommendation'] ?? '');
                         $riskFactors    = json_encode($api['data']['risk_factors'] ?? []);
                         $missingComp    = json_encode($missingList);
                         $featurePayload = json_encode($apiPayload);
                         $metadata       = model_metadata();
-                        $modelAccuracy  = (float)($api['data']['model_accuracy'] ?? $metadata['accuracy'] ?? 0);
-                        $f1Score        = (float)($api['data']['model_f1'] ?? $metadata['weighted_f1'] ?? 0);
-                        $algorithm      = 'XGBoost Progressive (' . $gradingPeriod . ')';
+                        $withinFiveRate = $api['data']['within_5_points_rate'] ?? null;
+                        $modelAccuracy  = $withinFiveRate === null ? null : (float)$withinFiveRate;
+                        $f1Score        = 0.0;
+                        $targetPeriod   = (string)($api['data']['target_period'] ?? '');
+                        $algorithm      = 'XGBoost Next-Period Regression (' . $gradingPeriod . ' to ' . $targetPeriod . ')';
                         $createdBy      = (int)$user['id'];
 
                         $stmt = $conn->prepare(
@@ -390,7 +405,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                         );
                         $stmt->bind_param(
                             'iissddssssddsi',
-                            $studentId, $academicRecordId, $gradingPeriod, $prediction,
+                            $studentId, $academicRecordId, $targetPeriod, $prediction,
                             $predictedGrade, $confidence, $recomm, $riskFactors,
                             $missingComp, $featurePayload, $modelAccuracy,
                             $f1Score, $algorithm, $createdBy
@@ -401,6 +416,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                         if ($prediction === 'At-Risk' || $prediction === 'Fail') {
                             $severity = ($prediction === 'Fail') ? 'High' : 'Medium';
                             $msg = "Student {$stu['full_name']} ({$stu['student_no']}) — {$gradingPeriod} — flagged as '{$prediction}' with " . round($confidence * 100, 1) . "% confidence.";
+                            $msg = "Student {$stu['full_name']} ({$stu['student_no']}) — forecast for {$targetPeriod}: {$prediction} ({$predictedGrade}%).";
                             create_alert($studentId, $createdBy, 'Risk', $severity, $msg);
                         }
 
@@ -417,10 +433,12 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                         $success['predicted_grade'] = $predictedGrade;
                         $success['missing']         = $missingList;
                         $success['grading_period']  = $gradingPeriod;
+                        $success['target_period']   = $targetPeriod;
                         $success['student_name']    = $stu['full_name'];
                         $success['student_no']      = $stu['student_no'];
                         $success['algorithm']       = $algorithm;
                         $success['accuracy']        = $modelAccuracy;
+                        $success['within_5_points_rate'] = $modelAccuracy;
                         $success['f1_score']        = $f1Score;
                         $success['gwa']             = $gwa;
                         $success['period_grades']   = $periodGradesForGwa;
@@ -646,12 +664,8 @@ button:disabled {
 <!-- ================================================================ -->
 <?php if ($success && isset($success['prediction'])): ?>
     <?php
-    $confRaw     = (float)($success['confidence'] ?? 0);
-    $confPct     = ($confRaw <= 1) ? round($confRaw * 100, 1) : round($confRaw, 1);
-    $accuracyRaw = (float)($success['accuracy'] ?? 0);
-    $accuracyPct = ($accuracyRaw <= 1) ? round($accuracyRaw * 100, 2) : round($accuracyRaw, 2);
-    $f1Raw       = (float)($success['f1_score'] ?? 0);
-    $f1Pct       = ($f1Raw <= 1) ? round($f1Raw * 100, 2) : round($f1Raw, 2);
+    $mae         = $success['model_mae'] ?? null;
+    $withinFive  = $success['within_5_points_rate'] ?? null;
     $compGrade   = round((float)$success['computed_grade'], 2);
     $predGrade   = round((float)($success['predicted_grade'] ?? $success['computed_grade']), 2);
     $gwa         = $success['gwa'] ?? null;
@@ -661,21 +675,21 @@ button:disabled {
     <section class="prediction-result <?= h($statusCls) ?>">
         <div style="margin-bottom:16px;">
             <small style="display:block;font-size:.78rem;opacity:.75;margin-bottom:4px;">
-                <?= h($success['grading_period']) ?> Prediction — <?= h($success['student_name']) ?> (<?= h($success['student_no']) ?>)
+                <?= h($success['grading_period']) ?> to <?= h($success['target_period'] ?? '') ?> Forecast — <?= h($success['student_name']) ?> (<?= h($success['student_no']) ?>)
             </small>
-            <h2 style="margin:0;font-size:1.5rem;">Prediction Result</h2>
+            <h2 style="margin:0;font-size:1.5rem;">Next-Period Forecast</h2>
         </div>
 
         <div class="prediction-grid">
             <!-- Computed Grade -->
             <div class="prediction-stat">
-                <small>Computed Grade</small>
+                <small><?= h($success['grading_period']) ?> Actual Grade</small>
                 <strong><?= $compGrade ?>%</strong>
             </div>
 
             <!-- Predicted Grade -->
             <div class="prediction-stat">
-                <small>Predicted Grade</small>
+                <small><?= h($success['target_period'] ?? 'Next Period') ?> Forecast Grade</small>
                 <strong><?= $predGrade ?>%</strong>
             </div>
 
@@ -685,23 +699,22 @@ button:disabled {
                 <strong><?= h($success['prediction']) ?></strong>
             </div>
 
-            <!-- Confidence -->
+            <?php if ($withinFive !== null): ?>
             <div class="prediction-stat">
-                <small>Confidence</small>
-                <strong><?= $confPct ?>%</strong>
+                <small>Validation predictions within ±5 points</small>
+                <strong><?= round((float)$withinFive * 100, 1) ?>%</strong>
             </div>
-
-            <!-- Model Accuracy -->
+            <?php else: ?>
             <div class="prediction-stat">
-                <small>Model Accuracy</small>
-                <strong><?= $accuracyPct ?>%</strong>
+                <small>Validation predictions within ±5 points</small>
+                <strong style="font-size:.9rem;">Unavailable — restart Flask API to retrain</strong>
             </div>
+            <?php endif; ?>
 
-            <!-- F1 Score (kung available) -->
-            <?php if ($f1Pct > 0): ?>
+            <?php if ($mae !== null): ?>
             <div class="prediction-stat">
-                <small>Weighted F1</small>
-                <strong><?= $f1Pct ?>%</strong>
+                <small>Validation MAE</small>
+                <strong>±<?= number_format((float)$mae, 2) ?> points</strong>
             </div>
             <?php endif; ?>
         </div>
@@ -867,7 +880,7 @@ button:disabled {
             <h2>Step 2 — Assessment Scores <span id="period-label" style="color:var(--blue);"></span></h2>
         </div>
         <p style="font-size:.85rem;color:var(--muted);margin:0 0 14px;">
-            Enter the raw scores. All score fields default to <strong>0</strong>. Click <strong>Save Scores</strong> to calculate the grade.
+            Enter the raw scores. <strong>Save Scores</strong> records the actual grade. Then click <strong>Generate Prediction</strong> to forecast the next grading period from actual grades available so far. Final is the last period and has no next-period forecast.
         </p>
 
         <div class="table-wrap">
@@ -908,6 +921,10 @@ button:disabled {
         <button type="submit" name="save_scores" value="1" class="button button-primary" id="btn-save"
                 onclick="document.getElementById('form_action').value='save_scores'">
             Save Scores
+        </button>
+        <button type="submit" name="run_prediction" value="1" class="button button-secondary" id="btn-predict"
+                onclick="document.getElementById('form_action').value='run_prediction'">
+            Generate Prediction
         </button>
     </div>
 </form>

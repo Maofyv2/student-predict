@@ -311,7 +311,7 @@ page_header('Students');
                                 </span>
                                 <?php if (!empty($student['confidence'])): ?>
                                     <small style="color: var(--muted); margin-top: 2px;">
-                                        <?= round((float)$student['confidence'] * 100, 1) ?>% conf
+                                        <?= (float)$student['confidence'] > 0 ? round((float)$student['confidence'] * 100, 1) . '% conf' : 'Forecast' ?>
                                     </small>
                                 <?php endif; ?>
                             <?php else: ?>
